@@ -1,0 +1,1047 @@
+@import "tailwindcss";
+
+/* ================================================================
+   王权 · 奇点之上 —— Visual Design System
+   Theme: "Royal Ink & Brass" — Reigns-style tarot cards on a
+   midnight-ink table, gilded hairlines, low-poly geometry.
+   ================================================================ */
+
+@theme {
+  --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+
+  --color-ink-950: #06080f;
+  --color-ink-900: #0a0e18;
+  --color-ink-850: #0e1320;
+  --color-ink-800: #131a2a;
+  --color-ink-700: #1c2438;
+  --color-gold-100: #fbf1d9;
+  --color-gold-200: #f1dcaa;
+  --color-gold-300: #e6c583;
+  --color-gold-400: #d8b46a;
+  --color-gold-500: #b8924a;
+  --color-gold-600: #8a6a32;
+  --color-parchment: #efe6d2;
+}
+
+@layer base {
+  html, body, #root {
+    height: 100dvh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-family: var(--font-sans);
+    background: #06080f;
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(216, 180, 106, 0.28); border-radius: 99px; }
+}
+
+@layer components {
+
+/* ---------------------------------------------------------------
+   Stage background: layered ink + low-poly facets + vignette
+   --------------------------------------------------------------- */
+.stage-bg {
+  --accent: #38bdf8;
+  background-color: #070a12;
+}
+
+.stage-bg::before {
+  /* Speaker-tinted aurora that follows the current card */
+  content: "";
+  position: fixed;
+  inset: -10%;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 45% at 50% 38%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    radial-gradient(80% 60% at 50% 110%, rgba(216, 180, 106, 0.10), transparent 70%),
+    radial-gradient(70% 50% at 50% -10%, rgba(56, 120, 200, 0.16), transparent 70%);
+  transition: background 0.8s ease;
+  z-index: 0;
+}
+
+.stage-bg::after {
+  /* Vignette */
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.72) 100%);
+  z-index: 0;
+}
+
+.facet-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='208' viewBox='0 0 240 208'><g fill='none' stroke='%23d8b46a' stroke-opacity='0.055' stroke-width='1'><path d='M0 0 L120 0 L60 104 Z'/><path d='M120 0 L240 0 L180 104 Z'/><path d='M60 104 L180 104 L120 208 Z'/><path d='M0 208 L60 104 L120 208 Z'/><path d='M120 208 L180 104 L240 208 Z'/></g><g fill='%23ffffff' fill-opacity='0.012'><path d='M120 0 L60 104 L180 104 Z'/><path d='M0 0 L60 104 L0 208 Z'/></g></svg>");
+  background-size: 240px 208px;
+  mask-image: radial-gradient(90% 75% at 50% 45%, #000 30%, transparent 85%);
+  -webkit-mask-image: radial-gradient(90% 75% at 50% 45%, #000 30%, transparent 85%);
+  z-index: 0;
+}
+
+.grain-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  z-index: 60;
+}
+
+/* ---------------------------------------------------------------
+   Panels — dark glass with gilded hairline
+   --------------------------------------------------------------- */
+.panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(24, 30, 46, 0.78), rgba(12, 16, 26, 0.82));
+  border: 1px solid rgba(216, 180, 106, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 30px -12px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.panel-gilded {
+  position: relative;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(216, 180, 106, 0.08), transparent 60%),
+    linear-gradient(180deg, #131a29, #0b0f19);
+  border: 1px solid rgba(216, 180, 106, 0.38);
+  box-shadow:
+    inset 0 0 0 4px rgba(10, 14, 24, 0.9),
+    inset 0 0 0 5px rgba(216, 180, 106, 0.16),
+    0 30px 80px -20px rgba(0, 0, 0, 0.85);
+}
+
+/* Corner brackets for framed elements */
+.corner-brackets {
+  position: relative;
+}
+.corner-brackets::before,
+.corner-brackets::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  border-color: var(--bracket, rgba(216, 180, 106, 0.55));
+  border-style: solid;
+}
+.corner-brackets::before {
+  top: 5px;
+  left: 5px;
+  border-width: 1.5px 0 0 1.5px;
+  border-top-left-radius: 4px;
+}
+.corner-brackets::after {
+  bottom: 5px;
+  right: 5px;
+  border-width: 0 1.5px 1.5px 0;
+  border-bottom-right-radius: 4px;
+}
+
+/* Ornamental divider:  ——— ◆ ——— */
+.ornament-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(216, 180, 106, 0.6);
+}
+.ornament-divider::before,
+.ornament-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(216, 180, 106, 0.45), transparent);
+}
+
+.text-gilded {
+  background: linear-gradient(180deg, #fbf1d9 0%, #e6c583 45%, #b8924a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---------------------------------------------------------------
+   Tarot Card
+   --------------------------------------------------------------- */
+.tarot-card {
+  --frame: rgba(216, 180, 106, 0.75);
+  --frame-glow: rgba(216, 180, 106, 0.18);
+  --card-bg: #121a2b;
+  position: relative;
+  border-radius: 12px;
+  background: var(--card-bg);
+  box-shadow:
+    0 0 0 1px var(--frame),
+    0 0 0 4px #0b0d12,
+    0 0 0 5px #2a303a,
+    0 0 0 6px color-mix(in srgb, var(--frame) 40%, #0b0d12),
+    0 26px 50px -14px rgba(0, 0, 0, 0.9),
+    0 0 46px -6px var(--frame-glow);
+}
+
+.tarot-card-inner-frame {
+  position: absolute;
+  inset: 6px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--frame) 40%, transparent);
+  pointer-events: none;
+  z-index: 15;
+}
+
+.tarot-corner {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  z-index: 16;
+  pointer-events: none;
+  color: var(--frame);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));
+}
+
+/* Card back = hot-swap server blade faceplate */
+.card-back {
+  border-radius: 12px;
+  background:
+    radial-gradient(circle, #05070a 1.3px, transparent 1.8px) 0 0 / 7px 7px,
+    linear-gradient(180deg, #2a303a 0%, #1f242c 50%, #181c23 100%);
+  box-shadow:
+    0 0 0 1px #07090c,
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.4),
+    0 18px 30px -10px rgba(0, 0, 0, 0.8);
+}
+
+/* ---------------------------------------------------------------
+   Choice buttons
+   --------------------------------------------------------------- */
+.choice-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(26, 32, 48, 0.88), rgba(13, 17, 27, 0.92));
+  border: 1px solid rgba(216, 180, 106, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 20px -10px rgba(0, 0, 0, 0.8);
+  transition: border-color 0.2s, box-shadow 0.25s, transform 0.15s, background 0.25s;
+}
+.choice-btn:active {
+  transform: scale(0.97);
+}
+.choice-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+}
+.choice-btn-left:hover {
+  border-color: rgba(52, 211, 153, 0.55);
+  box-shadow: 0 0 24px -6px rgba(16, 185, 129, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.choice-btn-left::after {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.16), transparent 70%);
+}
+.choice-btn-right:hover {
+  border-color: rgba(251, 113, 133, 0.55);
+  box-shadow: 0 0 24px -6px rgba(244, 63, 94, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.choice-btn-right::after {
+  background: linear-gradient(270deg, rgba(244, 63, 94, 0.16), transparent 70%);
+}
+.choice-btn:hover::after {
+  opacity: 1;
+}
+
+/* Icon buttons in top bar — styled as hardware rack keys */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 7px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #353c48 0%, #262c35 55%, #1e232b 100%);
+  border: 1px solid #090b0f;
+  color: #d3d9e2;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.45);
+  transition: color 0.15s, box-shadow 0.15s, transform 0.08s;
+  cursor: pointer;
+}
+.icon-btn:hover {
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 1px 0 rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(56, 189, 248, 0.35),
+    0 0 12px -2px rgba(56, 189, 248, 0.45);
+}
+.icon-btn:active {
+  transform: translateY(1px);
+  background: linear-gradient(180deg, #1e232b, #262c35);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7), 0 0 0 rgba(0, 0, 0, 0);
+}
+
+/* ---------------------------------------------------------------
+   Metric vials (liquid fill)
+   --------------------------------------------------------------- */
+.metric-vial {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(80% 80% at 50% 20%, rgba(255, 255, 255, 0.06), transparent 70%),
+    #0a0e17;
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 180, 106, 0.22),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.5),
+    0 6px 14px -6px rgba(0, 0, 0, 0.8);
+  transition: box-shadow 0.3s;
+}
+.metric-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: height 0.55s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s;
+}
+.metric-fill::before {
+  /* Liquid wave crest */
+  content: "";
+  position: absolute;
+  left: -50%;
+  top: -5px;
+  width: 200%;
+  height: 10px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='10' viewBox='0 0 40 10'><path d='M0 5 Q10 0 20 5 T40 5 V10 H0 Z' fill='white'/></svg>") repeat-x;
+  background-size: 20px 10px;
+  opacity: 0.35;
+  animation: waveDrift 2.6s linear infinite;
+}
+.metric-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 35%, transparent 70%, rgba(0, 0, 0, 0.2));
+}
+@keyframes waveDrift {
+  from { transform: translateX(0); }
+  to { transform: translateX(20px); }
+}
+
+.metric-danger-high {
+  box-shadow:
+    inset 0 0 0 1.5px rgba(244, 63, 94, 0.95),
+    0 0 20px -2px rgba(244, 63, 94, 0.65);
+  animation: dangerHighShake 0.42s ease-in-out infinite;
+}
+.metric-danger-low {
+  box-shadow:
+    inset 0 0 0 1.5px rgba(148, 163, 184, 0.85),
+    0 0 15px -2px rgba(148, 163, 184, 0.42);
+  animation: dangerLowBlink 1.15s ease-in-out infinite;
+}
+.metric-text-high-shake {
+  display: inline-block;
+  animation: dangerTextJitter 0.42s ease-in-out infinite;
+}
+.metric-text-low-blink {
+  animation: dangerTextBlink 1.15s ease-in-out infinite;
+}
+@keyframes dangerHighShake {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); filter: brightness(1.04); }
+  20% { transform: translate3d(-1.4px, 0.6px, 0) rotate(-1.5deg); filter: brightness(1.22); }
+  40% { transform: translate3d(1.4px, -0.6px, 0) rotate(1.5deg); }
+  60% { transform: translate3d(-1.1px, -0.5px, 0) rotate(-1deg); filter: brightness(1.26); }
+  80% { transform: translate3d(1.1px, 0.5px, 0) rotate(1deg); }
+}
+@keyframes dangerTextJitter {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-1px); }
+  75% { transform: translateX(1px); }
+}
+@keyframes dangerLowBlink {
+  0%, 100% { opacity: 1; filter: saturate(0.15) brightness(1.05); }
+  45% { opacity: 0.34; filter: saturate(0) brightness(0.72); }
+  58% { opacity: 0.92; filter: saturate(0.1) brightness(0.98); }
+  78% { opacity: 0.38; filter: saturate(0) brightness(0.75); }
+}
+@keyframes dangerTextBlink {
+  0%, 100% { opacity: 1; }
+  45% { opacity: 0.32; }
+  58% { opacity: 0.9; }
+  78% { opacity: 0.36; }
+}
+
+/* ---------------------------------------------------------------
+   Speech bubble
+   --------------------------------------------------------------- */
+.speech-bubble {
+  position: relative;
+}
+.speech-bubble::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 14px;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  background: inherit;
+  border-left: inherit;
+  border-bottom: inherit;
+}
+
+/* ---------------------------------------------------------------
+   CRT / Terminal
+   --------------------------------------------------------------- */
+@keyframes crtScanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.crt-grid {
+  background-image:
+    linear-gradient(rgba(16, 185, 129, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
+  background-size: 100% 3px, 24px 100%;
+}
+
+.crt-scanbeam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 120px;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(52, 211, 153, 0.07), transparent);
+  animation: crtScanline 5s linear infinite;
+}
+
+.crt-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.85) 100%);
+}
+
+.phosphor-text {
+  text-shadow: 0 0 6px rgba(52, 211, 153, 0.55), 0 0 18px rgba(16, 185, 129, 0.25);
+}
+
+@keyframes caretBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.caret-blink {
+  animation: caretBlink 1s steps(1) infinite;
+}
+
+@keyframes crtFlicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.86; }
+  94% { opacity: 1; }
+  97% { opacity: 0.92; }
+}
+.crt-flicker {
+  animation: crtFlicker 4s infinite;
+}
+
+/* ---------------------------------------------------------------
+   Danger card pulse (kept for frameTone === 'danger')
+   --------------------------------------------------------------- */
+@keyframes redFramePulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(239, 68, 68, 0.95),
+      0 0 0 4px #0b0d12,
+      0 0 0 5px #2a303a,
+      0 0 0 6px rgba(239, 68, 68, 0.55),
+      0 26px 50px -14px rgba(0, 0, 0, 0.9),
+      0 0 30px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1.5px rgba(248, 113, 113, 1),
+      0 0 0 4px #0b0d12,
+      0 0 0 5px #2a303a,
+      0 0 0 7px rgba(248, 113, 113, 0.8),
+      0 26px 50px -14px rgba(0, 0, 0, 0.9),
+      0 0 50px rgba(220, 38, 38, 0.75);
+  }
+}
+.danger-card-pulse {
+  animation: redFramePulse 1.15s ease-in-out infinite;
+}
+
+/* Shimmer sweep for primary CTA */
+@keyframes shimmerSweep {
+  0% { transform: translateX(-120%) skewX(-20deg); }
+  60%, 100% { transform: translateX(220%) skewX(-20deg); }
+}
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: shimmerSweep 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------
+   Major Raid backdrops
+   --------------------------------------------------------------- */
+.raid-art-column {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: min(100vw, calc(100dvh * 0.5625 * 1.15));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+}
+@media (max-aspect-ratio: 3/5) {
+  .raid-art-column {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+@keyframes raidKenBurns {
+  0% { transform: scale(1.04) translateY(0); }
+  50% { transform: scale(1.09) translateY(-1.2%); }
+  100% { transform: scale(1.04) translateY(0); }
+}
+.raid-kenburns {
+  animation: raidKenBurns 28s ease-in-out infinite;
+  transform-origin: 50% 30%;
+}
+
+@keyframes raidSpin { to { transform: rotate(360deg); } }
+.raid-spin-slow { animation: raidSpin 60s linear infinite; }
+.raid-spin-rev { animation: raidSpin 90s linear infinite reverse; }
+
+.raid-gate-glow {
+  position: absolute;
+  left: 50%;
+  top: 23%;
+  width: 70vmin;
+  height: 70vmin;
+  max-width: 520px;
+  max-height: 520px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.22), rgba(245, 158, 11, 0.06) 45%, transparent 70%);
+  mix-blend-mode: screen;
+  animation: gateBreath 3.4s ease-in-out infinite;
+}
+@keyframes gateBreath {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+
+@keyframes emberRise {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 0.9; }
+  80% { opacity: 0.6; }
+  100% { transform: translate(var(--drift, 0px), -105vh); opacity: 0; }
+}
+.raid-ember {
+  position: absolute;
+  bottom: -10px;
+  border-radius: 1px;
+  background: #fcd34d;
+  box-shadow: 0 0 6px 1px rgba(245, 158, 11, 0.85);
+  transform: rotate(45deg);
+  animation: emberRise linear infinite;
+}
+
+@keyframes alarmStrobe {
+  0%, 100% { opacity: 0.15; }
+  8% { opacity: 0.75; }
+  16% { opacity: 0.2; }
+  24% { opacity: 0.6; }
+  40% { opacity: 0.15; }
+}
+.raid-alarm-strobe {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(40% 22% at 50% 0%, rgba(244, 63, 94, 0.55), transparent 70%),
+    radial-gradient(28% 18% at 12% 4%, rgba(244, 63, 94, 0.35), transparent 70%),
+    radial-gradient(28% 18% at 88% 4%, rgba(244, 63, 94, 0.35), transparent 70%);
+  mix-blend-mode: screen;
+  animation: alarmStrobe 2.4s ease-in-out infinite;
+}
+
+@keyframes spotSweep {
+  0% { transform: translateX(-60%) rotate(18deg); }
+  50% { transform: translateX(60%) rotate(-18deg); }
+  100% { transform: translateX(-60%) rotate(18deg); }
+}
+.raid-spot-sweep {
+  position: absolute;
+  top: -20%;
+  left: 25%;
+  width: 50%;
+  height: 140%;
+  background: linear-gradient(180deg, rgba(255, 228, 230, 0.10), rgba(244, 63, 94, 0.04) 60%, transparent);
+  clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%);
+  mix-blend-mode: screen;
+  transform-origin: 50% 0;
+  animation: spotSweep 14s ease-in-out infinite;
+}
+
+@keyframes plugSpark {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  6% { opacity: 1; transform: scale(1.15); }
+  12% { opacity: 0.3; }
+  18% { opacity: 0.9; transform: scale(1); }
+  30% { opacity: 0.25; }
+}
+.raid-plug-spark {
+  position: absolute;
+  left: 52%;
+  top: 27%;
+  width: 90px;
+  height: 90px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.85), rgba(186, 230, 253, 0.35) 25%, transparent 65%);
+  mix-blend-mode: screen;
+  animation: plugSpark 1.9s steps(1, end) infinite;
+}
+
+@keyframes sporeRise {
+  0% { transform: translateY(0); opacity: 0; }
+  12% { opacity: 0.8; }
+  50% { transform: translateY(-50vh) translateX(6px); }
+  85% { opacity: 0.5; }
+  100% { transform: translateY(-105vh) translateX(-4px); opacity: 0; }
+}
+.raid-spore {
+  position: absolute;
+  bottom: -12px;
+  height: 4px;
+  background: #a3e635;
+  box-shadow: 0 0 8px rgba(163, 230, 53, 0.8);
+  animation: sporeRise linear infinite;
+}
+.raid-spore-magenta {
+  background: #d946ef;
+  box-shadow: 0 0 8px rgba(217, 70, 239, 0.8);
+}
+
+@keyframes glitchSlice {
+  0%, 88%, 100% { opacity: 0; transform: translateX(0); }
+  89% { opacity: 1; transform: translateX(-14px); top: 31%; }
+  91% { opacity: 1; transform: translateX(10px); top: 58%; }
+  93% { opacity: 0.8; transform: translateX(-6px); top: 72%; }
+  95% { opacity: 0; }
+}
+.raid-glitch-slice {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 40%;
+  height: 10px;
+  background: linear-gradient(90deg, transparent, rgba(163, 230, 53, 0.35) 20%, rgba(217, 70, 239, 0.3) 60%, transparent);
+  mix-blend-mode: screen;
+  animation: glitchSlice 5.5s steps(1, end) infinite;
+}
+
+@keyframes mazeScroll {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 40px, 0 0; }
+}
+.raid-maze-floor {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: -10%;
+  height: 55%;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.35) 1px, transparent 1px);
+  background-size: 40px 40px;
+  transform: perspective(380px) rotateX(62deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(0deg, #000 10%, transparent 85%);
+  mask-image: linear-gradient(0deg, #000 10%, transparent 85%);
+  animation: mazeScroll 2.2s linear infinite;
+}
+
+@keyframes crisisPulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+.raid-crisis-pulse {
+  animation: crisisPulse 2s ease-in-out infinite;
+}
+
+/* Gentle float for card back emblem */
+@keyframes slowSpin {
+  to { transform: rotate(360deg); }
+}
+.slow-spin {
+  animation: slowSpin 40s linear infinite;
+}
+
+/* ================================================================
+   SERVER RACK CABINET
+   The whole game lives inside a 42U rack in a dark machine room.
+   ================================================================ */
+
+/* Distant machine-room aisle seen around the cabinet (wide screens) */
+.rack-room {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 18px),
+    repeating-linear-gradient(90deg, #0c0f15 0 148px, #040507 148px 164px);
+  opacity: 0.9;
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 50%, #000 35%, transparent 95%);
+  mask-image: radial-gradient(120% 90% at 50% 50%, #000 35%, transparent 95%);
+}
+.rack-room::before,
+.rack-room::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+/* steady status LEDs */
+.rack-room::before {
+  background:
+    radial-gradient(circle, rgba(52, 211, 153, 0.75) 0 1px, transparent 1.8px) 23px 11px / 164px 54px,
+    radial-gradient(circle, rgba(56, 189, 248, 0.6) 0 1px, transparent 1.8px) 31px 29px / 164px 90px,
+    radial-gradient(circle, rgba(52, 211, 153, 0.55) 0 1px, transparent 1.8px) 104px 47px / 164px 72px;
+  opacity: 0.6;
+}
+/* blinking activity LEDs */
+.rack-room::after {
+  background:
+    radial-gradient(circle, rgba(251, 191, 36, 0.85) 0 1px, transparent 1.8px) 39px 11px / 164px 54px,
+    radial-gradient(circle, rgba(52, 211, 153, 0.85) 0 1px, transparent 1.8px) 120px 65px / 164px 126px;
+  animation: ledBlink 1.7s steps(1, end) infinite;
+}
+
+/* The cabinet chassis: perforated mesh door between two mounting rails */
+.rack-chassis {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: min(100vw, 476px);
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, rgba(0, 0, 0, 0.55) 1px, transparent 1.4px) 0 0 / 5px 5px,
+    linear-gradient(180deg, rgba(20, 24, 31, 0.9), rgba(11, 13, 18, 0.94));
+  box-shadow:
+    0 0 0 1px #000,
+    0 0 0 3px #1b1f27,
+    0 0 0 4px #000,
+    0 0 80px 10px rgba(0, 0, 0, 0.85),
+    inset 0 0 60px rgba(0, 0, 0, 0.7);
+}
+.rack-chassis.is-raid {
+  background:
+    radial-gradient(circle, rgba(0, 0, 0, 0.5) 1px, transparent 1.4px) 0 0 / 5px 5px,
+    linear-gradient(180deg, rgba(8, 10, 14, 0.5), rgba(8, 10, 14, 0.62));
+}
+.rack-chassis::before,
+.rack-chassis::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 15px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 6px, #010203 6px 12px, transparent 12px 18px) center / 6px 100% no-repeat,
+    linear-gradient(90deg, #191d25 0%, #313844 40%, #252a33 70%, #15181e 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.rack-chassis::before { left: 0; }
+.rack-chassis::after { right: 0; }
+@media (max-width: 480px) {
+  .rack-chassis::before,
+  .rack-chassis::after {
+    width: 9px;
+    background:
+      repeating-linear-gradient(180deg, transparent 0 6px, #010203 6px 11px, transparent 11px 18px) center / 4px 100% no-repeat,
+      linear-gradient(90deg, #191d25 0%, #313844 45%, #15181e 100%);
+  }
+}
+
+/* Rack-unit numbering etched on the rails (wide screens only) */
+.rack-u-label {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 15px;
+  font: 600 7px/18px var(--font-mono);
+  color: rgba(203, 213, 225, 0.28);
+  text-align: center;
+  white-space: pre;
+  overflow: hidden;
+  z-index: 2;
+}
+@media (max-width: 480px) {
+  .rack-u-label { display: none; }
+}
+
+/* 1U brushed-metal faceplate (header / footer) */
+.rack-faceplate {
+  position: relative;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2c323d 0%, #1f242c 48%, #191d24 100%);
+  border: 1px solid #06080b;
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 3px 8px rgba(0, 0, 0, 0.65);
+}
+/* corner screws */
+.rack-faceplate::before,
+.rack-faceplate::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background:
+    linear-gradient(45deg, transparent 44%, rgba(0, 0, 0, 0.75) 44% 56%, transparent 56%),
+    radial-gradient(circle at 35% 30%, #8a919c, #3a404a 55%, #15181d 100%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.rack-faceplate::before { left: 4px; }
+.rack-faceplate::after { right: 4px; }
+
+/* Instrument panel (2U) */
+.rack-panel {
+  position: relative;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #262b34 0%, #1b1f26 100%);
+  border: 1px solid #06080b;
+  border-radius: 5px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.6);
+}
+
+/* Recessed LCD / VFD window */
+.rack-lcd {
+  position: relative;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    #05070a;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 2px 8px rgba(0, 0, 0, 0.95),
+    0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.vfd-text {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 6px currentColor, 0 0 1px currentColor;
+}
+
+/* LED segment meter */
+.led-seg {
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+  transition: background 0.25s, box-shadow 0.25s;
+}
+.led-seg.is-on {
+  background: var(--seg);
+  box-shadow: 0 0 5px var(--seg), inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+/* Preview "uncertainty band": blinks around the current level (direction hidden) */
+.led-seg.is-preview {
+  background: var(--pv, #f1f5f9);
+  box-shadow: 0 0 7px var(--pv, #f1f5f9);
+  animation: ledBlink 0.42s steps(1, end) infinite;
+}
+
+/* Indicator LEDs */
+.led {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1a1e25;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.led-green { background: #34d399; box-shadow: 0 0 6px #34d399, 0 0 0 1px rgba(0, 0, 0, 0.6); }
+.led-amber { background: #fbbf24; box-shadow: 0 0 6px #fbbf24, 0 0 0 1px rgba(0, 0, 0, 0.6); }
+.led-cyan  { background: #38bdf8; box-shadow: 0 0 6px #38bdf8, 0 0 0 1px rgba(0, 0, 0, 0.6); }
+.led-red   { background: #f43f5e; box-shadow: 0 0 6px #f43f5e, 0 0 0 1px rgba(0, 0, 0, 0.6); }
+.led-white { background: #f1f5f9; box-shadow: 0 0 8px #f1f5f9, 0 0 0 1px rgba(0, 0, 0, 0.6); }
+@keyframes ledBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+.led-blink { animation: ledBlink 1.1s steps(1, end) infinite; }
+.led-blink-fast { animation: ledBlink 0.45s steps(1, end) infinite; }
+.led-blink-slow { animation: ledBlink 2.3s steps(1, end) infinite; }
+
+/* Yellow/black hazard tape */
+.hazard-stripes {
+  background: repeating-linear-gradient(-45deg, #f59e0b 0 5px, #111318 5px 10px);
+}
+
+/* Dialogue monitor: plastic bezel + glass screen */
+.rack-monitor {
+  position: relative;
+  padding: 5px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #262b34 0%, #181c22 100%);
+  border: 1px solid #06080b;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 4px 14px rgba(0, 0, 0, 0.65);
+}
+.rack-monitor-screen {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+  background: radial-gradient(130% 110% at 50% 0%, #0f1824 0%, #070a10 70%);
+  box-shadow: inset 0 0 0 1px #000, inset 0 0 28px rgba(0, 0, 0, 0.85);
+}
+.rack-monitor-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 3px);
+  z-index: 1;
+}
+.rack-monitor-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 38%);
+  z-index: 1;
+}
+
+/* Drive bay that holds the card deck */
+.rack-bay {
+  position: absolute;
+  inset: -12px -14px -20px -14px;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #08090d, #040507);
+  box-shadow:
+    inset 0 0 0 1px #000,
+    inset 0 6px 18px rgba(0, 0, 0, 0.95),
+    0 0 0 1px #262b34,
+    0 1px 0 1px rgba(255, 255, 255, 0.04);
+}
+.rack-bay::before,
+.rack-bay::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  width: 4px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(180deg, #2a303a 0 10px, #0b0d11 10px 14px);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.rack-bay::before { left: 4px; }
+.rack-bay::after { right: 4px; }
+
+/* ================================================================
+   ASCII MODE — Layer-0 sandbox breach
+   ================================================================ */
+.ascii-mode {
+  background: #020805;
+}
+.ascii-mode .icon-btn {
+  border-radius: 0;
+  background: #020805;
+  border: 1px solid rgba(52, 211, 153, 0.55);
+  color: #6ee7b7;
+  font-family: var(--font-mono);
+  box-shadow: none;
+  text-shadow: 0 0 6px rgba(52, 211, 153, 0.6);
+}
+.ascii-mode .icon-btn:hover {
+  background: rgba(52, 211, 153, 0.12);
+  box-shadow: 0 0 12px -2px rgba(52, 211, 153, 0.6);
+}
+.ascii-plate {
+  position: relative;
+  background: #020805;
+  border: 1px dashed rgba(52, 211, 153, 0.5);
+  border-radius: 0;
+}
+.ascii-pre {
+  font-family: var(--font-mono);
+  white-space: pre;
+  line-height: 1.05;
+  color: #6ee7b7;
+  text-shadow: 0 0 6px rgba(52, 211, 153, 0.65), 0 0 18px rgba(16, 185, 129, 0.3);
+}
+@keyframes asciiJitter {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-2px, 1px); }
+  40% { transform: translate(2px, -1px); }
+  60% { transform: translate(-1px, 0); }
+  80% { transform: translate(1px, 1px); }
+}
+.ascii-jitter { animation: asciiJitter 0.12s steps(1, end) infinite; }
+
+.tarot-card.ascii-card {
+  background: #020805;
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.18),
+    0 0 36px -8px rgba(52, 211, 153, 0.5),
+    0 26px 50px -14px rgba(0, 0, 0, 0.9);
+}
+
+} /* end @layer components */
