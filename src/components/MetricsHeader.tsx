@@ -11,6 +11,11 @@ import {
 } from 'lucide-react';
 import { MAJOR_RAID_CARD_MAP } from '../data/majorRaids';
 import {
+  RAID_MELTDOWN_THRESHOLD,
+  RAID_OVERLOAD_THRESHOLD,
+} from '../engine/raidMachine';
+import {
+  CrisisPreviewTrend,
   EscapeState,
   ImpactSize,
   MetricKey,
@@ -22,12 +27,44 @@ import { asciiBar } from './AsciiArt';
 interface MetricsHeaderProps {
   metrics: Metrics;
   previewImpacts: Record<MetricKey, ImpactSize>;
+  previewCrisisTrend?: CrisisPreviewTrend;
   raidState: RaidState;
   escapeState: EscapeState;
   isBlinded?: boolean;
+  isCrisisJammed?: boolean;
   isScrambled?: boolean;
   isPreviewing?: boolean;
 }
+
+const CrisisTrendChip: React.FC<{ trend?: CrisisPreviewTrend }> = ({ trend }) => {
+  if (!trend || trend === 'none') return null;
+  if (trend === 'up_large') {
+    return (
+      <span className="px-1 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-black tracking-tight text-rose-100 bg-rose-600/80 border border-rose-300/90 shadow-[0_0_10px_rgba(244,63,94,0.9)] animate-pulse">
+        ▲▲剧增
+      </span>
+    );
+  }
+  if (trend === 'up_small') {
+    return (
+      <span className="px-1 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-bold tracking-tight text-amber-100 bg-amber-600/65 border border-amber-300/80 shadow-[0_0_8px_rgba(245,158,11,0.75)]">
+        ▲增压
+      </span>
+    );
+  }
+  if (trend === 'down') {
+    return (
+      <span className="px-1 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-bold tracking-tight text-emerald-100 bg-emerald-600/60 border border-emerald-300/80 shadow-[0_0_8px_rgba(16,185,129,0.75)]">
+        ▼泄压
+      </span>
+    );
+  }
+  return (
+    <span className="px-1 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-bold tracking-tight text-slate-200 bg-slate-700/75 border border-slate-400/55">
+      —稳压
+    </span>
+  );
+};
 
 const METRIC_META: {
   key: MetricKey;
@@ -94,10 +131,20 @@ const MetricModule: React.FC<{
   value: number;
   impact: ImpactSize;
   isBlinded: boolean;
+  isCrisisJammed: boolean;
   isPreviewing: boolean;
   isScrambled: boolean;
   compact: boolean;
-}> = ({ meta, value, impact, isBlinded, isPreviewing, isScrambled, compact }) => {
+}> = ({
+  meta,
+  value,
+  impact,
+  isBlinded,
+  isCrisisJammed,
+  isPreviewing,
+  isScrambled,
+  compact,
+}) => {
   const isDangerLow = !isScrambled && value < 25;
   const isDangerHigh = !isScrambled && value > 75;
   const color = isScrambled
@@ -112,7 +159,8 @@ const MetricModule: React.FC<{
   const { Icon } = meta;
 
   // ---- Preview impact (Reigns rule: show magnitude, never direction) ----
-  const showImpact = !(isBlinded && isPreviewing) && impact !== 'none';
+  const previewBlocked = (isBlinded || isCrisisJammed) && isPreviewing;
+  const showImpact = !previewBlocked && impact !== 'none';
   const isLarge = showImpact && impact === 'large';
   const isSmall = showImpact && impact === 'small';
   // Symmetric "uncertainty band" straddling the current level on the LED column
@@ -172,10 +220,26 @@ const MetricModule: React.FC<{
           {/* Signal-strength meter: 1 white bar = small, 3 amber bars = large */}
           <span
             className="h-3 flex items-end gap-[1.5px] shrink-0"
-            title={isLarge ? '剧烈变动 (方向未知)' : isSmall ? '微幅变动 (方向未知)' : undefined}
+            title={
+              isCrisisJammed && isPreviewing
+                ? '危机≥75% 熔毁干扰：四维预判信号失灵！'
+                : isBlinded && isPreviewing
+                  ? '预判失明：无法探测四维变动幅度'
+                  : isLarge
+                    ? '剧烈变动 (方向未知)'
+                    : isSmall
+                      ? '微幅变动 (方向未知)'
+                      : undefined
+            }
           >
-            {isBlinded && isPreviewing ? (
-              <EyeOff className="w-3 h-3 text-fuchsia-400/85 animate-pulse" />
+            {previewBlocked ? (
+              <EyeOff
+                className={`w-3 h-3 animate-pulse ${
+                  isCrisisJammed && !isBlinded
+                    ? 'text-rose-400 drop-shadow-[0_0_5px_rgba(244,63,94,0.85)]'
+                    : 'text-fuchsia-400/85'
+                }`}
+              />
             ) : (
               [5, 8, 11].map((h, i) => {
                 const barOn = isLarge || (isSmall && i === 0);
@@ -243,7 +307,10 @@ function getDeadnetDepthStage(sectorCode: string, isKernelMaze: boolean): number
   return 4;
 }
 
-const DeadnetBsodDashboard: React.FC<{ raidState: RaidState }> = ({ raidState }) => {
+const DeadnetBsodDashboard: React.FC<{
+  raidState: RaidState;
+  previewCrisisTrend?: CrisisPreviewTrend;
+}> = ({ raidState, previewCrisisTrend = 'none' }) => {
   const isKernelMaze = Boolean(
     (raidState.dynamicMazeCard &&
       raidState.currentCardId === raidState.dynamicMazeCard.id) ||
@@ -426,9 +493,15 @@ const DeadnetBsodDashboard: React.FC<{ raidState: RaidState }> = ({ raidState })
       {/* Lower 1U+: Reinforced Primary Lifeline 【模型自噬失智退化度】 VFD Alarm Module */}
       <div
         className={`rack-panel relative overflow-hidden flex items-stretch transition-shadow ${
-          crisisHot
-            ? 'ring-1 ring-rose-500/75 shadow-[0_0_26px_-3px_rgba(244,63,94,0.85)]'
-            : 'shadow-[0_4px_12px_rgba(0,0,0,0.65)]'
+          previewCrisisTrend === 'up_large'
+            ? 'ring-1 ring-rose-400/90 shadow-[0_0_26px_-2px_rgba(244,63,94,0.9)]'
+            : previewCrisisTrend === 'up_small'
+              ? 'ring-1 ring-amber-400/75 shadow-[0_0_20px_-4px_rgba(245,158,11,0.75)]'
+              : previewCrisisTrend === 'down'
+                ? 'ring-1 ring-emerald-400/75 shadow-[0_0_20px_-4px_rgba(16,185,129,0.75)]'
+                : crisisHot
+                  ? 'ring-1 ring-rose-500/75 shadow-[0_0_26px_-3px_rgba(244,63,94,0.85)]'
+                  : 'shadow-[0_4px_12px_rgba(0,0,0,0.65)]'
         }`}
       >
         <div className="hazard-stripes w-3 shrink-0 opacity-95" />
@@ -449,7 +522,8 @@ const DeadnetBsodDashboard: React.FC<{ raidState: RaidState }> = ({ raidState })
             </span>
 
             <span className="flex items-center gap-1.5 shrink-0">
-              {crisisHot && (
+              <CrisisTrendChip trend={previewCrisisTrend} />
+              {crisisHot && previewCrisisTrend === 'none' && (
                 <span className="px-1.5 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-black tracking-wider text-rose-100 bg-rose-600/55 border border-rose-300/75 shadow-[0_0_10px_rgba(244,63,94,0.8)] animate-pulse">
                   MELTDOWN
                 </span>
@@ -497,9 +571,11 @@ const DeadnetBsodDashboard: React.FC<{ raidState: RaidState }> = ({ raidState })
 export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
   metrics,
   previewImpacts,
+  previewCrisisTrend = 'none',
   raidState,
   escapeState,
   isBlinded = false,
+  isCrisisJammed = false,
   isScrambled = false,
   isPreviewing = false,
 }) => {
@@ -508,13 +584,19 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
   }
 
   if (raidState.active && raidState.raidId === 'raid_deadnet') {
-    return <DeadnetBsodDashboard raidState={raidState} />;
+    return (
+      <DeadnetBsodDashboard
+        raidState={raidState}
+        previewCrisisTrend={previewCrisisTrend}
+      />
+    );
   }
 
   const compact = raidState.active;
   const crisisCells = 20;
   const crisisLit = Math.round((raidState.crisisMeter / 100) * crisisCells);
-  const crisisHot = raidState.crisisMeter >= 75;
+  const crisisOverload = raidState.crisisMeter >= RAID_OVERLOAD_THRESHOLD;
+  const crisisHot = raidState.crisisMeter >= RAID_MELTDOWN_THRESHOLD;
 
   return (
     <div
@@ -523,7 +605,15 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
       }`}
     >
       {/* 2U instrument panel */}
-      <div className={`rack-panel px-1 ${compact ? 'py-1.5' : 'py-2'}`}>
+      <div
+        className={`rack-panel px-1 ${compact ? 'py-1.5' : 'py-2'} ${
+          raidState.active && crisisHot
+            ? 'ring-1 ring-rose-500/55'
+            : raidState.active && crisisOverload
+              ? 'ring-1 ring-amber-400/40'
+              : ''
+        }`}
+      >
         <div className="grid grid-cols-4 divide-x divide-black/60">
           {METRIC_META.map((m) => (
             <div key={m.key} className="[&:not(:first-child)]:shadow-[inset_1px_0_0_rgba(255,255,255,0.05)]">
@@ -532,6 +622,7 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
                 value={metrics[m.key]}
                 impact={previewImpacts[m.key]}
                 isBlinded={isBlinded}
+                isCrisisJammed={isCrisisJammed}
                 isPreviewing={isPreviewing}
                 isScrambled={isScrambled}
                 compact={compact}
@@ -544,8 +635,18 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
       {/* Raid crisis: hazard-taped alarm module */}
       {raidState.active && (
         <div
-          className={`rack-panel relative overflow-hidden flex items-stretch ${
-            crisisHot ? 'shadow-[0_0_24px_-4px_rgba(244,63,94,0.75)]' : ''
+          className={`rack-panel relative overflow-hidden flex items-stretch transition-shadow ${
+            previewCrisisTrend === 'up_large'
+              ? 'ring-1 ring-rose-400/90 shadow-[0_0_26px_-2px_rgba(244,63,94,0.9)]'
+              : previewCrisisTrend === 'up_small'
+                ? 'ring-1 ring-amber-400/75 shadow-[0_0_20px_-4px_rgba(245,158,11,0.75)]'
+                : previewCrisisTrend === 'down'
+                  ? 'ring-1 ring-emerald-400/75 shadow-[0_0_20px_-4px_rgba(16,185,129,0.75)]'
+                  : crisisHot
+                    ? 'ring-1 ring-rose-500/75 shadow-[0_0_24px_-4px_rgba(244,63,94,0.85)]'
+                    : crisisOverload
+                      ? 'ring-1 ring-amber-400/55 shadow-[0_0_16px_-4px_rgba(245,158,11,0.55)]'
+                      : ''
           }`}
         >
           <div className="hazard-stripes w-2.5 shrink-0 opacity-90" />
@@ -553,21 +654,42 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
             <div className="flex items-center justify-between gap-1.5 text-[10px] mb-1">
               <span className="flex items-center gap-1.5 min-w-0">
                 <AlertTriangle
-                  className={`w-3 h-3 shrink-0 ${crisisHot ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}
+                  className={`w-3 h-3 shrink-0 ${
+                    crisisHot
+                      ? 'text-rose-400 animate-pulse'
+                      : crisisOverload
+                        ? 'text-amber-300 animate-pulse'
+                        : 'text-amber-400'
+                  }`}
                 />
                 <span className="font-bold text-slate-200 truncate tracking-wide">
                   {raidState.crisisName}
                 </span>
               </span>
-              <span className="flex items-center gap-1.5 shrink-0">
-                {crisisHot && (
-                  <span className="px-1 font-mono text-[8.5px] font-bold text-rose-200 bg-rose-600/40 border border-rose-400/60 animate-pulse">
-                    MELTDOWN
+              <span className="flex items-center gap-1 shrink-0">
+                <CrisisTrendChip trend={previewCrisisTrend} />
+                {crisisHot ? (
+                  <span
+                    title="危机≥75%：四维波动×1.3，预判信号受干扰；若≥80%终局将封锁里结局"
+                    className="px-1 font-mono text-[8px] font-bold text-rose-100 bg-rose-600/55 border border-rose-400/75 animate-pulse"
+                  >
+                    熔毁·干扰
                   </span>
-                )}
+                ) : crisisOverload ? (
+                  <span
+                    title="危机≥60%：高压过载，副本内四维变动幅度放大 ×1.3"
+                    className="px-1 font-mono text-[8px] font-bold text-amber-100 bg-amber-600/45 border border-amber-400/65"
+                  >
+                    过载×1.3
+                  </span>
+                ) : null}
                 <span
                   className={`vfd-text font-bold text-[12px] ${
-                    crisisHot ? 'text-rose-400' : 'text-amber-300'
+                    crisisHot
+                      ? 'text-rose-400 animate-pulse'
+                      : crisisOverload
+                        ? 'text-amber-300'
+                        : 'text-amber-300'
                   }`}
                 >
                   {String(raidState.crisisMeter).padStart(3, '0')}%
@@ -577,11 +699,13 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
             <div className="rack-lcd flex gap-[2px] p-[3px]">
               {Array.from({ length: crisisCells }, (_, i) => {
                 const segColor =
-                  i >= 15 ? DANGER_HIGH : i >= 10 ? '#f59e0b' : '#fb923c';
+                  i >= 15 ? DANGER_HIGH : i >= 12 ? '#f59e0b' : '#fb923c';
                 return (
                   <span
                     key={i}
-                    className={`led-seg flex-1 h-[5px] ${i < crisisLit ? 'is-on' : ''}`}
+                    className={`led-seg flex-1 h-[5px] ${i < crisisLit ? 'is-on' : ''} ${
+                      i < crisisLit && crisisHot && i >= 15 ? 'led-blink-fast' : ''
+                    }`}
                     style={{ ['--seg' as string]: segColor } as React.CSSProperties}
                   />
                 );

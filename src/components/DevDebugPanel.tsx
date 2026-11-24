@@ -384,12 +384,24 @@ export const DevDebugPanel: React.FC<DevDebugPanelProps> = ({
         <div className="flex items-center justify-between">
           <span className="font-semibold text-indigo-300">周目与剧本解锁状态</span>
           <span className="font-mono text-[11px] text-indigo-200">
-            角色 {meta.metCharacters.length}/10 · #{meta.runCount} · 预定:{run.plannedRaidId.replace('raid_', '')}
+            角色 {meta.metCharacters.length}/10 · #{meta.runCount} · 预定:
+            {run.plannedRaidId.replace('raid_', '')}
+            {run.nextRaidPreludeEarliestTurn ? `@T${run.nextRaidPreludeEarliestTurn}` : ''}
           </span>
         </div>
         <div className="text-[10px] text-slate-400 font-mono leading-relaxed">
           前三大剧本无序全开 | 已首通: {meta.clearedScenarioIds.length}/4 | 4死网(
           {meta.unlockedScenarios[3] ? '已开' : '首通任一'})
+          {(meta.recentRaidIds?.length ?? 0) > 0 && (
+            <>
+              {' '}
+              | 近遇:{' '}
+              {meta.recentRaidIds
+                .slice(0, 3)
+                .map((id) => id.replace('raid_', ''))
+                .join('→')}
+            </>
+          )}
         </div>
         <button
           type="button"

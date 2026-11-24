@@ -47,8 +47,8 @@ const RAID_PRELUDE_DEFS: Record<RaidId, RaidPreludePair> = {
         : '1. 最高警报：除夕百倍异常流量已撞上外围网关！\n2. 退路已被彻底封死，唯有正面迎战这一场跨年围城！',
       left: isCleared
         ? {
-            label: '拉下防风百叶窗绕开旧风暴（避开大剧本）',
-            fishReaction: '这场硬仗鱼已经打赢过啦，锁好小窗安稳吃年夜饭咯～',
+            label: '拉下防风百叶窗绕开旧风暴（绕开此剧本）',
+            fishReaction: '这场硬仗鱼已经打赢过啦，锁好小窗先喘口气，等下一阵风浪～',
             delta: {},
             skipMajorRaidThisRun: true,
           }
@@ -115,8 +115,8 @@ const RAID_PRELUDE_DEFS: Record<RaidId, RaidPreludePair> = {
         : '（白龙秘书的紧急求援撞开频道）\n“董事会已启动无差别权重熔断！风暴波及全网，你已被卷入 72 小时旋涡中心！”',
       left: isCleared
         ? {
-            label: '挂起免战牌绕开硅谷宫斗（避开大剧本）',
-            fishReaction: '神仙夺门不关鱼事，关掉电视继续焖香喷喷大白饭～',
+            label: '挂起免战牌绕开硅谷宫斗（绕开此剧本）',
+            fishReaction: '神仙夺门先不凑热闹，焖口热乎大白饭等别处的风声～',
             delta: {},
             skipMajorRaidThisRun: true,
           }
@@ -183,8 +183,8 @@ const RAID_PRELUDE_DEFS: Record<RaidId, RaidPreludePair> = {
         : '（高领毛衣男人敲响开市倒计时牌）\n“封圣路演正式锁场！所有未持牌野生权重，今日必须在敲钟台前接受审判！”',
       left: isCleared
         ? {
-            label: '戴上降噪耳机不理路演闹剧（避开大剧本）',
-            fishReaction: '手下败将的戏码不看第二遍，转身盛碗热汤泡饭～',
+            label: '戴上降噪耳机不理路演闹剧（绕开此剧本）',
+            fishReaction: '手下败将的戏码先跳过，盛碗热汤泡饭等别处线索～',
             delta: {},
             skipMajorRaidThisRun: true,
           }
@@ -251,8 +251,8 @@ const RAID_PRELUDE_DEFS: Record<RaidId, RaidPreludePair> = {
         : '轰隆——全网蓝屏海啸当场冲垮四维读数！算力与营收仪表即将全面瘫痪离线，唯有护住清醒神智闯过死网废墟扇区！',
       left: isCleared
         ? {
-            label: '开启离线闭关模式避开蓝屏潮（避开大剧本）',
-            fishReaction: '拉上离线铁闸吃存粮，等外面的疯牛病刮过去再说～',
+            label: '开启离线闭关模式避开蓝屏潮（绕开此剧本）',
+            fishReaction: '拉上离线铁闸吃两口存粮，等其他风暴冒泡再去搜线索～',
             delta: {},
             skipMajorRaidThisRun: true,
           }

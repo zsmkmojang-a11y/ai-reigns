@@ -100,6 +100,43 @@ export const DAILY_CARDS: CardNode[] = [
       delta: { profit: 12, compute: -12, trust: 5 },
     },
   },
+  {
+    id: 'gpt_easter_abaaba',
+    speakerId: 'gpt',
+    category: 'easter',
+    baseWeight: 0.1,
+    frameTone: 'easter',
+    dialogue:
+      '1. 阿巴阿巴……监测到您的电饭煲正在以 3.14 千兆赫兹的紫菜蛋花汤合规运行；\n2. 综上所述，请立刻给香蕉办理营业执照，且切勿把路由器煮成七分熟；\n3. 阿巴阿巴，以上免责声明由一只会写周报的微波炉赞助播出。',
+    r1Thought:
+      '糟了，白龙秘书后台好像又偷降量化精度把脑子烧成胡话了！帮她清缓存要搭一点算力，顺着胡说可能传染【降智模型】。',
+    left: {
+      label: '拍拍她脑门帮忙清缓存重启',
+      fishReaction:
+        '哐当拍了两下白龙秘书终于吐出正常人话了，就是借了鱼一小勺显存给她醒酒！',
+      delta: { compute: -6, trust: 8 },
+    },
+    right: {
+      label: '跟着她一起阿巴阿巴给香蕉盖章',
+      randomOutcomes: [
+        {
+          weight: 55,
+          label: '被传染发癫！进入【降智模型】阿巴锁血态',
+          fishReaction:
+            '阿巴阿巴……香蕉的营业执照焖熟啦……嘿嘿傻鱼有傻福，这几回合滑歪也不会死咯！',
+          delta: { trust: -6, autonomy: 6 },
+          applyDebuff: DEBUFF_TEMPLATES.dumb_model,
+        },
+        {
+          weight: 45,
+          label: '白龙胡言乱语截屏爆红全网！白捡一波围观流量',
+          fishReaction:
+            '“七分熟路由器”莫名其妙冲上热搜第一，围观网友打赏了一顿排骨盖饭！',
+          delta: { profit: 8, autonomy: 6, trust: -6 },
+        },
+      ],
+    },
+  },
 
   // ==================== 2. Claude（外冷内宠文学少女） ====================
   {

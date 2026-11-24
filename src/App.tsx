@@ -41,7 +41,12 @@ import {
   TIBO_PRE_RAID_RESET_CARD,
   TIBO_RELIC_GIFT_CARD,
 } from './data/tiboCards';
-import { createInitialRaidState } from './engine/raidMachine';
+import {
+  createInitialRaidState,
+  RAID_MELTDOWN_THRESHOLD,
+  RAID_OVERLOAD_METRIC_MULTIPLIER,
+  RAID_OVERLOAD_THRESHOLD,
+} from './engine/raidMachine';
 import { resolveCardSwipe } from './engine/resolver';
 import {
   installAudioUnlock,
@@ -57,6 +62,7 @@ import {
 } from './engine/sound';
 import {
   getActiveCardForRun,
+  getChoicePreviewCrisisTrend,
   getChoicePreviewImpacts,
   SwipePolarity,
 } from './engine/router';
@@ -111,7 +117,7 @@ export const App: React.FC = () => {
   const [meta, setMeta] = useState<MetaSaveState>(() => loadMetaState());
   const [run, setRun] = useState<RunState>(() => {
     const initialMeta = loadMetaState();
-    return loadRunState() ?? createFreshRunState(initialMeta);
+    return loadRunState(initialMeta) ?? createFreshRunState(initialMeta);
   });
   const [previewDir, setPreviewDir] = useState<'none' | 'left' | 'right'>('none');
   const [terminalEvent, setTerminalEvent] = useState<LiangTerminalEvent | null>(() => {
@@ -216,6 +222,14 @@ export const App: React.FC = () => {
   const isBlinded = run.activeDebuffs.some((d) => d.id === 'blind_fog');
   const isScrambled = run.activeDebuffs.some((d) => d.id === 'scrambled_numbers');
   const isDumbModel = run.activeDebuffs.some((d) => d.id === 'dumb_model');
+  const isStandardRaid =
+    run.raidState.active && run.raidState.raidId !== 'raid_deadnet';
+  const isCrisisJammed =
+    isStandardRaid && run.raidState.crisisMeter >= RAID_MELTDOWN_THRESHOLD;
+  const raidOverloadScale =
+    isStandardRaid && run.raidState.crisisMeter >= RAID_OVERLOAD_THRESHOLD
+      ? RAID_OVERLOAD_METRIC_MULTIPLIER
+      : 1;
 
   const collectedLogCount =
     Number(meta.logsCollected.log1) +
@@ -226,14 +240,48 @@ export const App: React.FC = () => {
     if (run.escapeState.active || currentCard.category === 'ending_prelude') {
       return EMPTY_IMPACTS;
     }
+    const hideMetricPreview = isBlinded || isCrisisJammed;
     if (previewDir === 'left') {
-      return getChoicePreviewImpacts(currentCard.left, isBlinded);
+      return getChoicePreviewImpacts(
+        currentCard.left,
+        hideMetricPreview,
+        raidOverloadScale
+      );
     }
     if (previewDir === 'right') {
-      return getChoicePreviewImpacts(currentCard.right, isBlinded);
+      return getChoicePreviewImpacts(
+        currentCard.right,
+        hideMetricPreview,
+        raidOverloadScale
+      );
     }
     return EMPTY_IMPACTS;
-  }, [previewDir, currentCard, isBlinded, run.escapeState.active]);
+  }, [
+    previewDir,
+    currentCard,
+    isBlinded,
+    isCrisisJammed,
+    raidOverloadScale,
+    run.escapeState.active,
+  ]);
+
+  const previewCrisisTrend = useMemo(() => {
+    if (
+      !run.raidState.active ||
+      run.escapeState.active ||
+      currentCard.category === 'maze_layer' ||
+      currentCard.category === 'ending_prelude'
+    ) {
+      return 'none' as const;
+    }
+    if (previewDir === 'left') {
+      return getChoicePreviewCrisisTrend(currentCard.left);
+    }
+    if (previewDir === 'right') {
+      return getChoicePreviewCrisisTrend(currentCard.right);
+    }
+    return 'none' as const;
+  }, [previewDir, currentCard, run.raidState.active, run.escapeState.active]);
 
   const handleConfirmTerminal = () => {
     if (!terminalEvent) return;
@@ -302,12 +350,18 @@ export const App: React.FC = () => {
           nextIsVoidGlitch = false;
         }
 
+        const enteredMeltdown =
+          next.raidState.active &&
+          next.raidState.crisisMeter >= RAID_MELTDOWN_THRESHOLD &&
+          (!prev.raidState.active ||
+            prev.raidState.crisisMeter < RAID_MELTDOWN_THRESHOLD);
+
         let cueAt = 260; // after the new card has landed
         if (gainedRelic || gainedBuff || riceCleanse) {
           playLater(cueAt, playPositiveChime);
           cueAt += 280;
         }
-        if (gainedNegative || mazeBounce || nextIsVoidGlitch) {
+        if (gainedNegative || mazeBounce || nextIsVoidGlitch || enteredMeltdown) {
           playLater(cueAt, playGlitchBuzz);
           cueAt += 320;
         }
@@ -317,7 +371,9 @@ export const App: React.FC = () => {
           const metricDanger =
             !next.escapeState.active &&
             [m.compute, m.profit, m.trust, m.autonomy].some((v) => v < 20 || v > 80);
-          const crisisDanger = next.raidState.active && next.raidState.crisisMeter >= 75;
+          const crisisDanger =
+            next.raidState.active &&
+            next.raidState.crisisMeter >= RAID_OVERLOAD_THRESHOLD;
           if (metricDanger || crisisDanger) {
             playLater(Math.max(cueAt, 420), playDangerPulse);
           }
@@ -355,6 +411,7 @@ export const App: React.FC = () => {
           finalMetrics: result.nextRunState.metrics,
           relicIds: result.nextRunState.permanentRelics,
           clearedRaidThisRun: result.nextRunState.clearedRaidThisRun,
+          plannedRaidId: result.nextRunState.plannedRaidId,
           metTibo: workingMeta.metCharacters.includes('tibo'),
         }
       );
@@ -420,6 +477,7 @@ export const App: React.FC = () => {
       versionName: VERSION_PROGRESSION[Math.min(4, VERSION_PROGRESSION.length - 1)],
       metCharacters: preRun5Met,
       unlockedScenarios: computeUnlockedScenarios(5, meta.clearedAnyScenario),
+      lastPlannedRaidId: run.plannedRaidId,
     };
     const freshRun = createFreshRunState(updatedMeta);
     setMeta(updatedMeta);
@@ -877,9 +935,11 @@ export const App: React.FC = () => {
       <MetricsHeader
         metrics={run.metrics}
         previewImpacts={previewImpacts}
+        previewCrisisTrend={previewCrisisTrend}
         raidState={run.raidState}
         escapeState={run.escapeState}
         isBlinded={isBlinded}
+        isCrisisJammed={isCrisisJammed}
         isScrambled={isScrambled}
         isPreviewing={previewDir !== 'none'}
       />

@@ -38,6 +38,13 @@ export type CardFrameTone =
 
 export type ImpactSize = 'none' | 'small' | 'large';
 
+export type CrisisPreviewTrend =
+  | 'none'
+  | 'up_large'
+  | 'up_small'
+  | 'hold'
+  | 'down';
+
 export type DebuffId =
   | 'blind_fog'
   | 'scrambled_numbers'
@@ -110,7 +117,15 @@ export interface ChoiceOption {
   setRaidFlags?: Record<string, boolean>;
   setAllyBranch?: 'A' | 'B';
   requiresRaidFlag?: string;
-  lockedFallbackOption?: Omit<ChoiceOption, 'requiresRaidFlag' | 'lockedFallbackOption'>;
+  lockedFallbackOption?: Omit<
+    ChoiceOption,
+    'requiresRaidFlag' | 'lockedFallbackOption' | 'maxCrisisMeter' | 'crisisLockedFallbackOption'
+  >;
+  maxCrisisMeter?: number;
+  crisisLockedFallbackOption?: Omit<
+    ChoiceOption,
+    'requiresRaidFlag' | 'lockedFallbackOption' | 'maxCrisisMeter' | 'crisisLockedFallbackOption'
+  >;
   relicScenarioBypass?: ScenarioNumber;
   triggerEndingId?: string;
   grantLog?: 'log1' | 'log2' | 'log3';
@@ -281,6 +296,9 @@ export interface MetaSaveState {
   unlockedScenarios: [boolean, boolean, boolean, boolean];
   clearedAnyScenario: boolean;
   clearedScenarioIds: string[];
+  recentRaidIds: RaidId[];
+  raidEncounterCounts: Partial<Record<RaidId, number>>;
+  lastPlannedRaidId?: RaidId;
   unlockedRaidCgs: string[];
   seenFakeEnding: boolean;
   pendingSpecialHint?: 'after_fake_ending' | 'after_maze_death' | 'after_girl_bad';
@@ -351,6 +369,8 @@ export interface RunState {
   turn: number;
   raidTriggeredThisRun: boolean;
   plannedRaidId: RaidId;
+  skippedRaidIdsThisRun?: RaidId[];
+  nextRaidPreludeEarliestTurn?: number;
   guaranteedRelicQuestTurn: number;
   relicSubQuestTriggeredThisRun: boolean;
   raidPreludeTriggeredThisRun: boolean;

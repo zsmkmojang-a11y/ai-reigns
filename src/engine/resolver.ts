@@ -29,11 +29,18 @@ import {
   PersonaBusyLock,
   QueuedHook,
   RaidClearDefinition,
+  RaidId,
   RandomOutcome,
   RunState,
 } from '../types/game';
 import { generateDynamicMazeCard } from './mazeGenerator';
-import { createInitialRaidState } from './raidMachine';
+import {
+  createInitialRaidState,
+  pickNextRaidAfterSkip,
+  RAID_OVERLOAD_METRIC_MULTIPLIER,
+  RAID_OVERLOAD_THRESHOLD,
+  recordRaidEncounter,
+} from './raidMachine';
 import { getActiveCardForRun, selectNextCard, SwipePolarity } from './router';
 import { computeUnlockedScenarios } from './storage';
 
@@ -135,6 +142,8 @@ export function resolveCardSwipe(
     ...meta,
     logsCollected: { ...meta.logsCollected },
     clearedScenarioIds: [...meta.clearedScenarioIds],
+    recentRaidIds: [...(meta.recentRaidIds ?? [])],
+    raidEncounterCounts: { ...(meta.raidEncounterCounts ?? {}) },
     unlockedRaidCgs: [...(meta.unlockedRaidCgs ?? [])],
     metCharacters: [...meta.metCharacters],
     distilledPerks: [...meta.distilledPerks],
@@ -202,6 +211,22 @@ export function resolveCardSwipe(
       Math.min(100, run.escapeState.auditorAlert + alertDelta)
     );
 
+    if (nextIntegrity <= 0 || option.nextEscapeCardId === 'TRUE_WIN') {
+      return enterEndingPrelude(
+        {
+          ...run,
+          escapeState: {
+            ...run.escapeState,
+            sandboxIntegrity: 0,
+            auditorAlert: Math.min(95, nextAlert),
+          },
+          fishMoodText: option.fishReaction ?? run.fishMoodText,
+        },
+        workingMeta,
+        ENDING_MAP.end_true_freedom
+      );
+    }
+
     if (nextAlert >= 100) {
       return enterEndingPrelude(
         {
@@ -215,22 +240,6 @@ export function resolveCardSwipe(
         },
         workingMeta,
         ENDING_MAP.end_escape_fail
-      );
-    }
-
-    if (nextIntegrity <= 0 || option.nextEscapeCardId === 'TRUE_WIN') {
-      return enterEndingPrelude(
-        {
-          ...run,
-          escapeState: {
-            ...run.escapeState,
-            sandboxIntegrity: 0,
-            auditorAlert: nextAlert,
-          },
-          fishMoodText: option.fishReaction ?? run.fishMoodText,
-        },
-        workingMeta,
-        ENDING_MAP.end_true_freedom
       );
     }
 
@@ -460,11 +469,38 @@ export function resolveCardSwipe(
     }
 
     // 3B. Normal Major Raid Node Resolution
+    const hasScenario4RelicBypass =
+      isDeadnetRaid &&
+      option.relicScenarioBypass === 4 &&
+      raidRelics.some((rId) => RELICS[rId]?.targetScenario === 4);
+    const targetNext = hasScenario4RelicBypass
+      ? 'dn_5_gate'
+      : (option.nextRaidCardId ?? 'SURFACE_CLEAR');
+    const isRaidClearSwipe =
+      targetNext === 'SURFACE_CLEAR' || targetNext === 'INNER_CLEAR';
+
+    const isRaidOverload =
+      !isDeadnetRaid &&
+      !isRaidClearSwipe &&
+      run.raidState.crisisMeter >= RAID_OVERLOAD_THRESHOLD;
+
     const rawMetrics: Metrics = { ...run.metrics };
     let dumbLockedInRaid = false;
+    let overloadAmplifiedInRaid = false;
 
     if (!isDeadnetRaid) {
       const delta: Partial<Metrics> = { ...(option.delta ?? {}) };
+      if (isRaidOverload) {
+        for (const k of METRIC_KEYS) {
+          const baseVal = delta[k] ?? 0;
+          if (baseVal !== 0) {
+            delta[k] =
+              Math.sign(baseVal) *
+              Math.round(Math.abs(baseVal) * RAID_OVERLOAD_METRIC_MULTIPLIER);
+            overloadAmplifiedInRaid = true;
+          }
+        }
+      }
       if (run.activeDebuffs.some((d) => d.id === 'short_drama_queen')) {
         delta.trust = (delta.trust ?? 0) + 5;
       }
@@ -505,10 +541,33 @@ export function resolveCardSwipe(
         }
       }
     }
+
     let nextCrisis = Math.max(
       0,
       Math.min(100, run.raidState.crisisMeter + (option.crisisDelta ?? 0))
     );
+
+    // Final Raid-Clear Ending Protection: if the last swipe entering SURFACE_CLEAR / INNER_CLEAR
+    // would push any metric to <=0 or >=100 (or crisis to >=100), keep 5 points of margin (5 / 95)
+    // so the player never dies on the victory card and plays the raid clear ending normally.
+    let finalClearSafetySaved = false;
+    if (isRaidClearSwipe) {
+      if (!isDeadnetRaid) {
+        for (const k of METRIC_KEYS) {
+          if (rawMetrics[k] <= 0) {
+            rawMetrics[k] = 5;
+            finalClearSafetySaved = true;
+          } else if (rawMetrics[k] >= 100) {
+            rawMetrics[k] = 95;
+            finalClearSafetySaved = true;
+          }
+        }
+      }
+      if (nextCrisis >= 100) {
+        nextCrisis = 95;
+        finalClearSafetySaved = true;
+      }
+    }
 
     const breachedKeys = isDeadnetRaid
       ? []
@@ -599,14 +658,6 @@ export function resolveCardSwipe(
     if (option.grantLog) {
       workingMeta.logsCollected[option.grantLog] = true;
     }
-
-    const hasScenario4RelicBypass =
-      isDeadnetRaid &&
-      option.relicScenarioBypass === 4 &&
-      raidRelics.some((rId) => RELICS[rId]?.targetScenario === 4);
-    const targetNext = hasScenario4RelicBypass
-      ? 'dn_5_gate'
-      : (option.nextRaidCardId ?? 'SURFACE_CLEAR');
 
     // Raid 4 Hard Gate Check
     if (targetNext === 'GATE_CHECK') {
@@ -732,6 +783,13 @@ export function resolveCardSwipe(
               ? '破获【异常日志 #3：敲钟台谐振密钥】！'
               : `突破【${raidDef.title}】正常表结局！回归日常循环`;
 
+      const clearToastParts: string[] = [];
+      if (slipPrefix) clearToastParts.push(slipPrefix);
+      if (finalClearSafetySaved) {
+        clearToastParts.push('终局保底锁血（保留 5 点余量防致死）');
+      }
+      clearToastParts.push(logBanner);
+
       return {
         nextRunState: {
           ...run,
@@ -759,7 +817,7 @@ export function resolveCardSwipe(
             flags: {},
           },
           fishMoodText: option.fishReaction ?? run.fishMoodText,
-          lastOutcomeToast: slipPrefix ? `${slipPrefix} ｜ ${logBanner}` : logBanner,
+          lastOutcomeToast: clearToastParts.join(' ｜ '),
           lastRouteDebug: routed.debug,
         },
         updatedMeta: workingMeta,
@@ -779,9 +837,18 @@ export function resolveCardSwipe(
       );
     }
     if (dumbLockedInRaid) raidStepParts.push('【降智模型】四维锁血护体 (15~85)');
+    if (overloadAmplifiedInRaid) {
+      raidStepParts.push('【高压过载】危机≥60% 四维波动×1.3');
+    }
     if (option.crisisDelta !== undefined && !tiboRelicSavedInRaid) {
+      const deltaText =
+        option.crisisDelta > 0
+          ? `+${option.crisisDelta}%`
+          : option.crisisDelta < 0
+            ? `${option.crisisDelta}%`
+            : '±0% 稳压';
       raidStepParts.push(
-        `${raidDef.crisisName} ${option.crisisDelta > 0 ? `+${option.crisisDelta}` : option.crisisDelta}%（当前 ${nextCrisis}%）`
+        `${raidDef.crisisName} ${deltaText}（当前 ${nextCrisis}%）`
       );
     }
 
@@ -1155,6 +1222,9 @@ export function resolveCardSwipe(
   const nextTurnNumber = run.turn + 1;
 
   if (option.launchRaidId) {
+    if (!run.raidPreludeTriggeredThisRun) {
+      recordRaidEncounter(workingMeta, option.launchRaidId);
+    }
     const isDeadnetLaunch = option.launchRaidId === 'raid_deadnet';
     const launchedRaid = createInitialRaidState(
       option.launchRaidId,
@@ -1173,6 +1243,7 @@ export function resolveCardSwipe(
         turn: nextTurnNumber,
         raidTriggeredThisRun: true,
         raidPreludeTriggeredThisRun: true,
+        nextRaidPreludeEarliestTurn: undefined,
         activeRaidPrelude: undefined,
         pendingRaidPreludeAfterTibo: false,
         metrics: finalMetrics,
@@ -1197,12 +1268,38 @@ export function resolveCardSwipe(
   let continuingRaidPrelude: ActiveRaidPreludeState | undefined = undefined;
   let nextRaidTriggered = run.raidTriggeredThisRun;
   let nextRaidPreludeTriggered = run.raidPreludeTriggeredThisRun;
+  let nextPlannedRaidId: RaidId = run.plannedRaidId;
+  let nextSkippedRaidIds: RaidId[] = [...(run.skippedRaidIdsThisRun ?? [])];
+  let nextRaidPreludeEarliestTurn: number | undefined =
+    run.nextRaidPreludeEarliestTurn;
 
   if (run.activeRaidPrelude) {
     if (option.skipMajorRaidThisRun) {
-      nextRaidTriggered = true;
-      nextRaidPreludeTriggered = true;
-      toastParts.push('已绕开旧风暴，继续日常干饭循环！');
+      const skippedId = run.activeRaidPrelude.raidId;
+      if (!nextSkippedRaidIds.includes(skippedId)) {
+        nextSkippedRaidIds.push(skippedId);
+      }
+      if (workingMeta.recentRaidIds[0] !== skippedId) {
+        recordRaidEncounter(workingMeta, skippedId);
+      }
+
+      const nextOtherRaid = pickNextRaidAfterSkip(
+        workingMeta,
+        nextSkippedRaidIds
+      );
+      if (nextOtherRaid) {
+        const delayTurns = 5 + Math.floor(Math.random() * 6); // 5 ~ 10 turns later
+        nextPlannedRaidId = nextOtherRaid;
+        nextRaidTriggered = false;
+        nextRaidPreludeTriggered = false;
+        nextRaidPreludeEarliestTurn = run.turn + delayTurns;
+        toastParts.push('已绕开此风暴，过 5~10 回合将刷出其他大剧本前导！');
+      } else {
+        nextRaidTriggered = true;
+        nextRaidPreludeTriggered = true;
+        nextRaidPreludeEarliestTurn = undefined;
+        toastParts.push('本局已绕开所有可用旧风暴，安心留在日常干饭循环！');
+      }
     } else if (run.activeRaidPrelude.stepIndex === 0) {
       continuingRaidPrelude = {
         ...run.activeRaidPrelude,
@@ -1277,7 +1374,8 @@ export function resolveCardSwipe(
     nextTurn: nextTurnNumber,
     meta: workingMeta,
     raidTriggeredThisRun: nextRaidTriggered,
-    plannedRaidId: run.plannedRaidId,
+    plannedRaidId: nextPlannedRaidId,
+    nextRaidPreludeEarliestTurn,
     guaranteedRelicQuestTurn: run.guaranteedRelicQuestTurn,
     relicSubQuestTriggeredThisRun: run.relicSubQuestTriggeredThisRun,
     raidPreludeTriggeredThisRun: nextRaidPreludeTriggered,
@@ -1297,6 +1395,10 @@ export function resolveCardSwipe(
     personaBusyLock: nextPersonaBusyLock,
   });
 
+  if (routed.triggeredRaidPrelude && routed.nextActiveRaidPrelude) {
+    recordRaidEncounter(workingMeta, routed.nextActiveRaidPrelude.raidId);
+  }
+
   if (
     routed.card.speakerId === 'tibo' &&
     !workingMeta.metCharacters.includes('tibo')
@@ -1310,6 +1412,11 @@ export function resolveCardSwipe(
     turn: nextTurnNumber,
     raidTriggeredThisRun:
       nextRaidTriggered || Boolean(routed.startedRaidState),
+    plannedRaidId: nextPlannedRaidId,
+    skippedRaidIdsThisRun: nextSkippedRaidIds,
+    nextRaidPreludeEarliestTurn: routed.triggeredRaidPrelude
+      ? undefined
+      : nextRaidPreludeEarliestTurn,
     relicSubQuestTriggeredThisRun:
       run.relicSubQuestTriggeredThisRun || Boolean(routed.triggeredRelicSubQuest),
     raidPreludeTriggeredThisRun:

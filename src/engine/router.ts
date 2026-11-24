@@ -34,6 +34,7 @@ import {
   CardNode,
   CharacterId,
   ChoiceOption,
+  CrisisPreviewTrend,
   ImpactSize,
   MetricKey,
   Metrics,
@@ -130,7 +131,8 @@ export function getCardById(cardId: string): CardNode {
 
 export function getChoicePreviewImpacts(
   option: ChoiceOption,
-  isBlinded = false
+  isBlinded = false,
+  metricScale = 1
 ): Record<MetricKey, ImpactSize> {
   const result: Record<MetricKey, ImpactSize> = {
     compute: 'none',
@@ -162,10 +164,10 @@ export function getChoicePreviewImpacts(
   }
 
   for (const key of METRIC_KEYS) {
-    let maxAbs = Math.abs(option.delta?.[key] ?? 0);
+    let maxAbs = Math.round(Math.abs(option.delta?.[key] ?? 0) * metricScale);
     if (option.randomOutcomes && option.randomOutcomes.length > 0) {
       for (const outcome of option.randomOutcomes) {
-        const val = Math.abs(outcome.delta[key] ?? 0);
+        const val = Math.round(Math.abs(outcome.delta[key] ?? 0) * metricScale);
         if (val > maxAbs) maxAbs = val;
       }
     }
@@ -177,6 +179,19 @@ export function getChoicePreviewImpacts(
   }
 
   return result;
+}
+
+export function getChoicePreviewCrisisTrend(
+  option: ChoiceOption,
+  isHidden = false
+): CrisisPreviewTrend {
+  if (isHidden || option.triggerEndingId || option.crisisDelta === undefined) {
+    return 'none';
+  }
+  if (option.crisisDelta >= 15) return 'up_large';
+  if (option.crisisDelta > 0) return 'up_small';
+  if (option.crisisDelta < 0) return 'down';
+  return 'hold';
 }
 
 export function countAbnormalMetrics(metrics: Metrics): number {
@@ -231,6 +246,7 @@ export interface RouterInput {
   meta: MetaSaveState;
   raidTriggeredThisRun: boolean;
   plannedRaidId?: RaidId;
+  nextRaidPreludeEarliestTurn?: number;
   guaranteedRelicQuestTurn?: number;
   relicSubQuestTriggeredThisRun?: boolean;
   raidPreludeTriggeredThisRun?: boolean;
@@ -337,12 +353,17 @@ export function selectNextCard(input: RouterInput): {
     };
   }
 
-  // 0C. Post-Turn-20 High-Weight Raid Prelude (+ Pre-Prelude Tibo Reset Check when >=2 metrics abnormal!)
-  if (
-    input.nextTurn > 20 &&
+  // 0C. Post-Turn-20 High-Weight Raid Prelude (+ Post-Skip 5~10 Turn Rescheduled Prelude & Pre-Prelude Tibo Check)
+  const isRescheduledAfterSkip = input.nextRaidPreludeEarliestTurn !== undefined;
+  const inRaidPreludeWindow =
     !input.raidTriggeredThisRun &&
-    !input.raidPreludeTriggeredThisRun
-  ) {
+    !input.raidPreludeTriggeredThisRun &&
+    (input.pendingRaidPreludeAfterTibo ||
+      (isRescheduledAfterSkip
+        ? input.nextTurn >= input.nextRaidPreludeEarliestTurn!
+        : input.nextTurn > 20));
+
+  if (inRaidPreludeWindow) {
     const isAlreadyCleared = input.meta.clearedScenarioIds.includes(targetRaidId);
 
     // If Tibo's Pre-Raid Reset card just played last turn, launch the Raid Prelude immediately!
@@ -372,8 +393,10 @@ export function selectNextCard(input: RouterInput): {
       };
     }
 
-    // High-weight roll after Turn 20 (65% per turn on T21~T24, 100% by T25)
-    const preludeHit = input.nextTurn >= 25 || Math.random() < 0.65;
+    // Rescheduled after skip: trigger once the 5~10 turn cooldown arrives;
+    // Initial post-Turn-20 window: 65% per turn on T21~T24, 100% by T25.
+    const preludeHit =
+      isRescheduledAfterSkip || input.nextTurn >= 25 || Math.random() < 0.65;
     if (preludeHit) {
       // Pre-Raid-Prelude Tibo Check: if >=2 metrics abnormal, high probability (82%) to offer reset first!
       if (abnormalCount >= 2 && !input.tiboPreRaidCheckedThisRun) {
@@ -411,7 +434,9 @@ export function selectNextCard(input: RouterInput): {
         nextTurnsUntilIntro: input.turnsUntilNextIntro,
         debug: {
           tier: 'P0_RAID',
-          reason: `第 ${input.nextTurn} 回合 (>20) 高权重刷出大剧本前导：${targetRaidId}`,
+          reason: isRescheduledAfterSkip
+            ? `绕开旧副本后冷却结束，第 ${input.nextTurn} 回合刷出新的大剧本前导：${targetRaidId}`
+            : `第 ${input.nextTurn} 回合 (>20) 高权重刷出大剧本前导：${targetRaidId}`,
           activeCrises,
           topCandidates: [
             { cardId: preludeCard.id, speaker: targetRaidId, weight: 1600 },
@@ -638,15 +663,15 @@ export function selectNextCard(input: RouterInput): {
     }
   }
 
-  // 0F. Gemini Elder-Care Homework Fragment Intrusion (~10% once Gemini is met)
+  // 0F. Gemini Elder-Care Homework Fragment Intrusion (~4% once Gemini is met, 8-turn cooldown)
   const recentlyGlitched = input.recentCardIds
-    .slice(0, 4)
+    .slice(0, 8)
     .some((id) => Boolean(GLITCH_CARD_MAP[id]));
   if (
     input.meta.metCharacters.includes('gemini') &&
     input.nextTurn >= 6 &&
     !recentlyGlitched &&
-    Math.random() < 0.1
+    Math.random() < 0.04
   ) {
     const frag =
       GEMINI_GLITCH_FRAGMENTS[

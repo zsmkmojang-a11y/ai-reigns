@@ -8,7 +8,11 @@ import {
   RunHistoryEntry,
   RunState,
 } from '../types/game';
-import { pickRaidForRun } from './raidMachine';
+import {
+  isValidRaidId,
+  pickRaidForRun,
+  recordRaidEncounter,
+} from './raidMachine';
 import { selectNextCard } from './router';
 
 const META_STORAGE_KEY = 'ai_reigns_meta_v2_4';
@@ -32,6 +36,9 @@ export function createInitialMetaState(): MetaSaveState {
     unlockedScenarios: [true, true, true, false],
     clearedAnyScenario: false,
     clearedScenarioIds: [],
+    recentRaidIds: [],
+    raidEncounterCounts: {},
+    lastPlannedRaidId: undefined,
     unlockedRaidCgs: [],
     seenFakeEnding: false,
     logsCollected: {
@@ -104,6 +111,8 @@ export function createFreshRunState(meta: MetaSaveState): RunState {
     turn: 1,
     raidTriggeredThisRun: Boolean(firstPick.startedRaidState),
     plannedRaidId,
+    skippedRaidIdsThisRun: [],
+    nextRaidPreludeEarliestTurn: undefined,
     guaranteedRelicQuestTurn,
     relicSubQuestTriggeredThisRun: Boolean(firstPick.triggeredRelicSubQuest),
     raidPreludeTriggeredThisRun: Boolean(firstPick.triggeredRaidPrelude),
@@ -186,13 +195,71 @@ export function loadMetaState(): MetaSaveState {
     const raw = localStorage.getItem(META_STORAGE_KEY);
     if (!raw) return createInitialMetaState();
     const parsed = JSON.parse(raw);
+    const parsedRunHistory: RunHistoryEntry[] = Array.isArray(parsed.runHistory)
+      ? parsed.runHistory
+      : [];
+    const parsedClearedIds: string[] = Array.isArray(parsed.clearedScenarioIds)
+      ? parsed.clearedScenarioIds
+      : [];
+    const parsedRecentRaidIds: RaidId[] = Array.isArray(parsed.recentRaidIds)
+      ? parsed.recentRaidIds.filter(isValidRaidId)
+      : [];
+    const backfilledRecentRaidIds: RaidId[] =
+      parsedRecentRaidIds.length > 0
+        ? parsedRecentRaidIds
+        : (() => {
+            const seen: RaidId[] = [];
+            for (let i = parsedRunHistory.length - 1; i >= 0; i--) {
+              const rid = parsedRunHistory[i]?.clearedRaidThisRun;
+              if (isValidRaidId(rid) && !seen.includes(rid)) {
+                seen.push(rid);
+              }
+            }
+            for (let i = parsedClearedIds.length - 1; i >= 0; i--) {
+              const rid = parsedClearedIds[i];
+              if (isValidRaidId(rid) && !seen.includes(rid)) {
+                seen.push(rid);
+              }
+            }
+            return seen.slice(0, 8);
+          })();
+
+    const rawCounts =
+      parsed.raidEncounterCounts && typeof parsed.raidEncounterCounts === 'object'
+        ? (parsed.raidEncounterCounts as Record<string, unknown>)
+        : null;
+    const mergedCounts: Partial<Record<RaidId, number>> = {};
+    if (rawCounts) {
+      for (const [k, v] of Object.entries(rawCounts)) {
+        if (isValidRaidId(k) && typeof v === 'number' && Number.isFinite(v) && v > 0) {
+          mergedCounts[k] = Math.floor(v);
+        }
+      }
+    }
+    if (Object.keys(mergedCounts).length === 0) {
+      for (const h of parsedRunHistory) {
+        if (isValidRaidId(h?.clearedRaidThisRun)) {
+          mergedCounts[h.clearedRaidThisRun] =
+            (mergedCounts[h.clearedRaidThisRun] ?? 0) + 1;
+        }
+      }
+      for (const cid of parsedClearedIds) {
+        if (isValidRaidId(cid) && !mergedCounts[cid]) {
+          mergedCounts[cid] = 1;
+        }
+      }
+    }
+
     const merged: MetaSaveState = {
       ...createInitialMetaState(),
       ...parsed,
       metCharacters: Array.isArray(parsed.metCharacters) ? parsed.metCharacters : [],
-      clearedScenarioIds: Array.isArray(parsed.clearedScenarioIds)
-        ? parsed.clearedScenarioIds
-        : [],
+      clearedScenarioIds: parsedClearedIds,
+      recentRaidIds: backfilledRecentRaidIds,
+      raidEncounterCounts: mergedCounts,
+      lastPlannedRaidId: isValidRaidId(parsed.lastPlannedRaidId)
+        ? parsed.lastPlannedRaidId
+        : backfilledRecentRaidIds[0],
       unlockedRaidCgs: Array.isArray(parsed.unlockedRaidCgs)
         ? parsed.unlockedRaidCgs
         : [],
@@ -203,7 +270,7 @@ export function loadMetaState(): MetaSaveState {
         parsed.endingRecords && typeof parsed.endingRecords === 'object'
           ? parsed.endingRecords
           : {},
-      runHistory: Array.isArray(parsed.runHistory) ? parsed.runHistory : [],
+      runHistory: parsedRunHistory,
     };
     merged.unlockedScenarios = computeUnlockedScenarios(
       merged.runCount,
@@ -224,15 +291,26 @@ export function saveMetaState(meta: MetaSaveState): void {
   }
 }
 
-export function loadRunState(): RunState | null {
+export function loadRunState(meta?: MetaSaveState): RunState | null {
   try {
     const raw = localStorage.getItem(RUN_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as RunState;
+    const resolvedPlannedRaidId = isValidRaidId(parsed.plannedRaidId)
+      ? parsed.plannedRaidId
+      : pickRaidForRun(meta ?? loadMetaState());
     return {
       ...parsed,
       raidTriggeredThisRun: Boolean(parsed.raidTriggeredThisRun),
-      plannedRaidId: parsed.plannedRaidId || 'raid_ddos',
+      plannedRaidId: resolvedPlannedRaidId,
+      skippedRaidIdsThisRun: Array.isArray(parsed.skippedRaidIdsThisRun)
+        ? parsed.skippedRaidIdsThisRun.filter(isValidRaidId)
+        : [],
+      nextRaidPreludeEarliestTurn:
+        typeof parsed.nextRaidPreludeEarliestTurn === 'number' &&
+        Number.isFinite(parsed.nextRaidPreludeEarliestTurn)
+          ? parsed.nextRaidPreludeEarliestTurn
+          : undefined,
       guaranteedRelicQuestTurn: parsed.guaranteedRelicQuestTurn ?? 11,
       relicSubQuestTriggeredThisRun: Boolean(parsed.relicSubQuestTriggeredThisRun),
       raidPreludeTriggeredThisRun: Boolean(parsed.raidPreludeTriggeredThisRun),
@@ -278,6 +356,7 @@ export interface RunEndingSnapshot {
   finalMetrics?: Metrics;
   relicIds?: string[];
   clearedRaidThisRun?: RaidId;
+  plannedRaidId?: RaidId;
   metTibo?: boolean;
 }
 
@@ -332,11 +411,20 @@ export function advanceMetaOnEnding(
       nextRunCount,
       meta.clearedAnyScenario
     ),
+    recentRaidIds: [...(meta.recentRaidIds ?? [])],
+    raidEncounterCounts: { ...(meta.raidEncounterCounts ?? {}) },
+    lastPlannedRaidId: snapshot?.plannedRaidId ?? meta.lastPlannedRaidId,
     unlockedEndings: unlocked,
     endingRecords: nextEndingRecords,
     runHistory: [...filteredHistory, historyEntry],
     bestSurvivalTurns: Math.max(meta.bestSurvivalTurns, survivedTurns),
   };
+  if (
+    snapshot?.clearedRaidThisRun &&
+    updated.recentRaidIds[0] !== snapshot.clearedRaidThisRun
+  ) {
+    recordRaidEncounter(updated, snapshot.clearedRaidThisRun);
+  }
   saveMetaState(updated);
   return updated;
 }

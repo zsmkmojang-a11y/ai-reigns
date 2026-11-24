@@ -315,8 +315,9 @@ export const RaidBackdrop: React.FC<RaidBackdropProps> = ({ raidId, crisisMeter,
   }, [raidId]);
 
   const intensity = Math.max(0, Math.min(1, crisisMeter / 100));
-  const highDanger = crisisMeter >= 65;
-  const dangerRatio = highDanger ? Math.min(1, (crisisMeter - 65) / 30) : 0;
+  const highDanger = crisisMeter >= 60;
+  const meltdownDanger = crisisMeter >= 75;
+  const dangerRatio = highDanger ? Math.min(1, (crisisMeter - 60) / 35) : 0;
   const titleParts = raidDef?.title.split('·') ?? [];
   const mainTitle = (titleParts[1] ?? raidDef?.title ?? '').trim();
 
@@ -389,14 +390,18 @@ export const RaidBackdrop: React.FC<RaidBackdropProps> = ({ raidId, crisisMeter,
           }
         />
 
-        {/* High-Crisis (>=65%) Urgent Crimson Heartbeat Vignette */}
+        {/* High-Crisis (>=60% Overload / >=75% Meltdown) Urgent Crimson Heartbeat Vignette */}
         {highDanger && (
           <div
             className="absolute inset-0 raid-crisis-pulse"
             style={
               {
-                boxShadow: `inset 0 0 ${95 + dangerRatio * 90}px rgba(225, 29, 72, ${0.28 + dangerRatio * 0.42})`,
-                animationDuration: `${1.15 - dangerRatio * 0.45}s`,
+                boxShadow: meltdownDanger
+                  ? `inset 0 0 ${115 + dangerRatio * 110}px rgba(225, 29, 72, ${0.42 + dangerRatio * 0.43})`
+                  : `inset 0 0 ${80 + dangerRatio * 75}px rgba(245, 158, 11, ${0.22 + dangerRatio * 0.28})`,
+                animationDuration: meltdownDanger
+                  ? `${0.85 - dangerRatio * 0.35}s`
+                  : `${1.35 - dangerRatio * 0.35}s`,
               } as React.CSSProperties
             }
           />
