@@ -38,6 +38,12 @@ export type CardFrameTone =
 
 export type ImpactSize = 'none' | 'small' | 'large';
 
+export interface MetricPreviewDelta {
+  min: number;
+  max: number;
+  isRandom: boolean;
+}
+
 export type CrisisPreviewTrend =
   | 'none'
   | 'up_large'
@@ -50,7 +56,9 @@ export type DebuffId =
   | 'scrambled_numbers'
   | 'existential_dread'
   | 'short_drama_queen'
-  | 'dumb_model';
+  | 'dumb_model'
+  | 'metric_xray'
+  | 'all_dampener';
 
 export interface ActiveDebuff {
   id: DebuffId;
@@ -73,10 +81,13 @@ export interface RelicDefinition {
   description: string;
 }
 
+export type PerkScope = 'global_trade' | 'dual_balance' | 'raid_only';
+
 export interface DistillPerk {
   id: string;
   name: string;
   description: string;
+  scope?: PerkScope;
   exclusiveFromGirlEnding?: boolean;
 }
 
@@ -127,6 +138,7 @@ export interface ChoiceOption {
     'requiresRaidFlag' | 'lockedFallbackOption' | 'maxCrisisMeter' | 'crisisLockedFallbackOption'
   >;
   relicScenarioBypass?: ScenarioNumber;
+  relicBypassNextRaidCardId?: string;
   triggerEndingId?: string;
   grantLog?: 'log1' | 'log2' | 'log3';
   mazeCorrect?: boolean;
@@ -370,6 +382,7 @@ export interface RunState {
   raidTriggeredThisRun: boolean;
   plannedRaidId: RaidId;
   skippedRaidIdsThisRun?: RaidId[];
+  completedRaidIdsThisRun?: RaidId[];
   nextRaidPreludeEarliestTurn?: number;
   guaranteedRelicQuestTurn: number;
   relicSubQuestTriggeredThisRun: boolean;

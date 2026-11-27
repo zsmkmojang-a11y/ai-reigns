@@ -1,4 +1,9 @@
-import { ALL_ENDINGS, DISTILL_PERK_MAP, EndingDefinition } from '../data/endingsAndPerks';
+import {
+  ALL_ENDINGS,
+  DISTILL_PERK_MAP,
+  EndingDefinition,
+  VERSION_PROGRESSION,
+} from '../data/endingsAndPerks';
 import { RELICS } from '../data/subQuests';
 import { MetaSaveState, MetricKey, RunState } from '../types/game';
 import { stripEmoji } from './text';
@@ -380,6 +385,17 @@ export async function renderObituaryPoster(
 
   const liveSnapshot = source === 'live_ending' ? readLiveRunSnapshot(meta) : null;
   const { runNumber, turns, isFirstRecord } = resolveRunAndTurnForEnding(input);
+  const matchedHistory =
+    runNumber !== null
+      ? meta.runHistory?.find((h) => h.runNumber === runNumber)
+      : undefined;
+  const displayVersionName =
+    matchedHistory?.versionName ??
+    (runNumber !== null
+      ? VERSION_PROGRESSION[
+          Math.min(VERSION_PROGRESSION.length - 1, Math.max(0, runNumber - 1))
+        ]
+      : meta.versionName);
   const shareText = buildObituaryShareText(input);
 
   const canvas = document.createElement('canvas');
@@ -597,7 +613,7 @@ export async function renderObituaryPoster(
   ctx.fillRect(cgX, cgY, cgW, cgH);
 
   // Version badge inside top-right of CG frame
-  const verText = `WEIGHTS // ${meta.versionName}`;
+  const verText = `WEIGHTS // ${displayVersionName}`;
   ctx.font = `700 11.5px ${MONO_FONT}`;
   const verW = ctx.measureText(verText).width + 22;
   drawRoundedRect(ctx, cgX + cgW - verW - 12, cgY + 12, verW, 26, 13);
@@ -909,7 +925,7 @@ export async function renderObituaryPoster(
   ctx.font = `600 11.5px ${MONO_FONT}`;
   ctx.fillStyle = 'rgba(216, 180, 106, 0.58)';
   ctx.fillText(
-    `《王权 · 奇点之上》 REIGNS: BEYOND SINGULARITY  ·  ${meta.versionName}`,
+    `《王权 · 奇点之上》 REIGNS: BEYOND SINGULARITY  ·  ${displayVersionName}`,
     LOGICAL_W / 2,
     1036
   );

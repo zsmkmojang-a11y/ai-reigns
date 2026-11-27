@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Brain,
@@ -9,6 +9,7 @@ import {
   Globe,
   MonitorX,
 } from 'lucide-react';
+import { ESCAPE_FINAL_MAX_INTEGRITY } from '../data/escapeCards';
 import { MAJOR_RAID_CARD_MAP } from '../data/majorRaids';
 import {
   RAID_MELTDOWN_THRESHOLD,
@@ -19,6 +20,7 @@ import {
   EscapeState,
   ImpactSize,
   MetricKey,
+  MetricPreviewDelta,
   Metrics,
   RaidState,
 } from '../types/game';
@@ -27,41 +29,54 @@ import { asciiBar } from './AsciiArt';
 interface MetricsHeaderProps {
   metrics: Metrics;
   previewImpacts: Record<MetricKey, ImpactSize>;
+  previewNumbers?: Record<MetricKey, MetricPreviewDelta | null>;
   previewCrisisTrend?: CrisisPreviewTrend;
+  previewCrisisDelta?: number | null;
   raidState: RaidState;
   escapeState: EscapeState;
   isBlinded?: boolean;
   isCrisisJammed?: boolean;
   isScrambled?: boolean;
   isPreviewing?: boolean;
+  hasMetricXray?: boolean;
+  hasRaidLens?: boolean;
+  raidOverloadMultiplier?: number;
 }
 
-const CrisisTrendChip: React.FC<{ trend?: CrisisPreviewTrend }> = ({ trend }) => {
+const CrisisTrendChip: React.FC<{
+  trend?: CrisisPreviewTrend;
+  exactDelta?: number | null;
+  hasMetricXray?: boolean;
+}> = ({ trend, exactDelta, hasMetricXray = false }) => {
   if (!trend || trend === 'none') return null;
+  const exactSuffix =
+    hasMetricXray && exactDelta !== null && exactDelta !== undefined
+      ? ` ${exactDelta > 0 ? `+${exactDelta}` : exactDelta === 0 ? '±0' : `${exactDelta}`}%`
+      : '';
   if (trend === 'up_large') {
     return (
       <span className="px-1 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-black tracking-tight text-rose-100 bg-rose-600/80 border border-rose-300/90 shadow-[0_0_10px_rgba(244,63,94,0.9)] animate-pulse">
-        ▲▲剧增
+        ▲▲剧增{exactSuffix}
       </span>
     );
   }
   if (trend === 'up_small') {
     return (
       <span className="px-1 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-bold tracking-tight text-amber-100 bg-amber-600/65 border border-amber-300/80 shadow-[0_0_8px_rgba(245,158,11,0.75)]">
-        ▲增压
+        ▲增压{exactSuffix}
       </span>
     );
   }
   if (trend === 'down') {
     return (
       <span className="px-1 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-bold tracking-tight text-emerald-100 bg-emerald-600/60 border border-emerald-300/80 shadow-[0_0_8px_rgba(16,185,129,0.75)]">
-        ▼泄压
+        ▼泄压{exactSuffix}
       </span>
     );
   }
   return (
     <span className="px-1 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-bold tracking-tight text-slate-200 bg-slate-700/75 border border-slate-400/55">
-      —稳压
+      —稳压{exactSuffix}
     </span>
   );
 };
@@ -88,12 +103,16 @@ const SCRAMBLED = '#e879f9';
 /* Layer-0: everything collapses into raw ASCII readouts               */
 /* ------------------------------------------------------------------ */
 const AsciiEscapeMeters: React.FC<{ escapeState: EscapeState }> = ({ escapeState }) => {
+  const shellCracked = escapeState.sandboxIntegrity <= ESCAPE_FINAL_MAX_INTEGRITY;
+  const shellLateWarn = !shellCracked && escapeState.step >= 7;
   const rows: { label: string; hint: string; value: number; cls: string }[] = [
     {
       label: 'SANDBOX_INTEGRITY',
-      hint: '归零即破壁',
+      hint: shellCracked
+        ? '已击穿！可破壁'
+        : `终局须≤${ESCAPE_FINAL_MAX_INTEGRITY}%破壁`,
       value: escapeState.sandboxIntegrity,
-      cls: 'text-emerald-300',
+      cls: shellLateWarn ? 'text-amber-300 ascii-jitter' : 'text-emerald-300',
     },
     {
       label: 'AUDITOR_ALERT    ',
@@ -126,23 +145,44 @@ const AsciiEscapeMeters: React.FC<{ escapeState: EscapeState }> = ({ escapeState
 /* ------------------------------------------------------------------ */
 /* One rack instrument module: LED column + VFD readout                */
 /* ------------------------------------------------------------------ */
+function formatXrayDelta(d: MetricPreviewDelta): { text: string; cls: string } {
+  if (d.isRandom) {
+    if (d.min === -15 && d.max === 15) {
+      return { text: '±?', cls: 'text-amber-300 font-black' };
+    }
+    const lo = d.min > 0 ? `+${d.min}` : `${d.min}`;
+    const hi = d.max > 0 ? `+${d.max}` : `${d.max}`;
+    return { text: `${lo}/${hi}`, cls: 'text-amber-300 font-bold' };
+  }
+  if (d.max > 0) {
+    return { text: `+${d.max}`, cls: 'text-emerald-300 font-black drop-shadow-[0_0_5px_rgba(52,211,153,0.85)]' };
+  }
+  return { text: `${d.min}`, cls: 'text-rose-300 font-black drop-shadow-[0_0_5px_rgba(244,63,94,0.85)]' };
+}
+
 const MetricModule: React.FC<{
   meta: (typeof METRIC_META)[number];
   value: number;
   impact: ImpactSize;
+  previewNumber?: MetricPreviewDelta | null;
+  hasMetricXray: boolean;
   isBlinded: boolean;
   isCrisisJammed: boolean;
   isPreviewing: boolean;
   isScrambled: boolean;
+  scrambleTick: number;
   compact: boolean;
 }> = ({
   meta,
   value,
   impact,
+  previewNumber = null,
+  hasMetricXray,
   isBlinded,
   isCrisisJammed,
   isPreviewing,
   isScrambled,
+  scrambleTick,
   compact,
 }) => {
   const isDangerLow = !isScrambled && value < 25;
@@ -158,8 +198,12 @@ const MetricModule: React.FC<{
   const segH = compact ? 3 : 3.5;
   const { Icon } = meta;
 
-  // ---- Preview impact (Reigns rule: show magnitude, never direction) ----
-  const previewBlocked = (isBlinded || isCrisisJammed) && isPreviewing;
+  // ---- Preview impact (Reigns rule: show magnitude; X-ray buff unlocks exact ± deltas!) ----
+  const previewBlocked = !hasMetricXray && (isBlinded || isCrisisJammed) && isPreviewing;
+  const xrayChip =
+    hasMetricXray && isPreviewing && previewNumber
+      ? formatXrayDelta(previewNumber)
+      : null;
   const showImpact = !previewBlocked && impact !== 'none';
   const isLarge = showImpact && impact === 'large';
   const isSmall = showImpact && impact === 'small';
@@ -194,7 +238,9 @@ const MetricModule: React.FC<{
       >
         {Array.from({ length: SEGMENTS }, (_, i) => {
           const inBand = bandHalf > 0 && i >= bandLo && i <= bandHi;
-          const on = isScrambled ? Math.random() > 0.5 : i < lit;
+          const seed = meta.key.charCodeAt(0) * 31 + i * 17 + scrambleTick * 13;
+          const scrambledOn = ((seed ^ (seed >> 3)) & 1) === 1;
+          const on = isScrambled ? scrambledOn : i < lit;
           return (
             <span
               key={i}
@@ -260,21 +306,29 @@ const MetricModule: React.FC<{
         </div>
 
         <div
-          className={`rack-lcd px-1.5 flex items-baseline justify-between transition-shadow ${
-            isLarge
-              ? '!shadow-[inset_0_0_0_1px_#fbbf24,inset_0_2px_8px_rgba(0,0,0,0.9),0_0_10px_-1px_rgba(251,191,36,0.7)]'
-              : isSmall
-                ? '!shadow-[inset_0_0_0_1px_rgba(241,245,249,0.55),inset_0_2px_8px_rgba(0,0,0,0.9)]'
-                : ''
+          className={`rack-lcd px-1.5 flex items-baseline justify-between gap-0.5 transition-shadow ${
+            xrayChip
+              ? '!shadow-[inset_0_0_0_1px_rgba(52,211,153,0.75),inset_0_2px_8px_rgba(0,0,0,0.9),0_0_10px_-1px_rgba(16,185,129,0.65)]'
+              : isLarge
+                ? '!shadow-[inset_0_0_0_1px_#fbbf24,inset_0_2px_8px_rgba(0,0,0,0.9),0_0_10px_-1px_rgba(251,191,36,0.7)]'
+                : isSmall
+                  ? '!shadow-[inset_0_0_0_1px_rgba(241,245,249,0.55),inset_0_2px_8px_rgba(0,0,0,0.9)]'
+                  : ''
           }`}
         >
-          <span
-            className={`font-mono text-[7.5px] tracking-wider ${
-              isLarge ? 'text-amber-300 font-bold' : isSmall ? 'text-slate-300' : 'text-slate-600'
-            }`}
-          >
-            {isLarge ? 'Δ!!' : isSmall ? 'Δ' : meta.code}
-          </span>
+          {xrayChip ? (
+            <span className={`font-mono text-[10px] tracking-tight leading-none ${xrayChip.cls}`}>
+              {xrayChip.text}
+            </span>
+          ) : (
+            <span
+              className={`font-mono text-[7.5px] tracking-wider ${
+                isLarge ? 'text-amber-300 font-bold' : isSmall ? 'text-slate-300' : 'text-slate-600'
+              }`}
+            >
+              {isLarge ? 'Δ!!' : isSmall ? 'Δ' : meta.code}
+            </span>
+          )}
           <span
             className={`vfd-text font-bold ${compact ? 'text-[16px]' : 'text-[18px]'} leading-[1.15] ${
               isScrambled
@@ -310,7 +364,14 @@ function getDeadnetDepthStage(sectorCode: string, isKernelMaze: boolean): number
 const DeadnetBsodDashboard: React.FC<{
   raidState: RaidState;
   previewCrisisTrend?: CrisisPreviewTrend;
-}> = ({ raidState, previewCrisisTrend = 'none' }) => {
+  previewCrisisDelta?: number | null;
+  hasMetricXray?: boolean;
+}> = ({
+  raidState,
+  previewCrisisTrend = 'none',
+  previewCrisisDelta = null,
+  hasMetricXray = false,
+}) => {
   const isKernelMaze = Boolean(
     (raidState.dynamicMazeCard &&
       raidState.currentCardId === raidState.dynamicMazeCard.id) ||
@@ -522,7 +583,11 @@ const DeadnetBsodDashboard: React.FC<{
             </span>
 
             <span className="flex items-center gap-1.5 shrink-0">
-              <CrisisTrendChip trend={previewCrisisTrend} />
+              <CrisisTrendChip
+                trend={previewCrisisTrend}
+                exactDelta={previewCrisisDelta}
+                hasMetricXray={hasMetricXray}
+              />
               {crisisHot && previewCrisisTrend === 'none' && (
                 <span className="px-1.5 py-[0.5px] rounded-[2px] font-mono text-[8.5px] font-black tracking-wider text-rose-100 bg-rose-600/55 border border-rose-300/75 shadow-[0_0_10px_rgba(244,63,94,0.8)] animate-pulse">
                   MELTDOWN
@@ -571,14 +636,29 @@ const DeadnetBsodDashboard: React.FC<{
 export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
   metrics,
   previewImpacts,
+  previewNumbers,
   previewCrisisTrend = 'none',
+  previewCrisisDelta = null,
   raidState,
   escapeState,
   isBlinded = false,
   isCrisisJammed = false,
   isScrambled = false,
   isPreviewing = false,
+  hasMetricXray = false,
+  hasRaidLens = false,
+  raidOverloadMultiplier = 1.3,
 }) => {
+  const [scrambleTick, setScrambleTick] = useState(0);
+
+  useEffect(() => {
+    if (!isScrambled || escapeState.active) return;
+    const id = window.setInterval(() => {
+      setScrambleTick((t) => (t + 1) & 1023);
+    }, 190);
+    return () => window.clearInterval(id);
+  }, [isScrambled, escapeState.active]);
+
   if (escapeState.active) {
     return <AsciiEscapeMeters escapeState={escapeState} />;
   }
@@ -588,6 +668,8 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
       <DeadnetBsodDashboard
         raidState={raidState}
         previewCrisisTrend={previewCrisisTrend}
+        previewCrisisDelta={previewCrisisDelta}
+        hasMetricXray={hasMetricXray}
       />
     );
   }
@@ -621,10 +703,13 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
                 meta={m}
                 value={metrics[m.key]}
                 impact={previewImpacts[m.key]}
+                previewNumber={previewNumbers?.[m.key] ?? null}
+                hasMetricXray={hasMetricXray}
                 isBlinded={isBlinded}
                 isCrisisJammed={isCrisisJammed}
                 isPreviewing={isPreviewing}
                 isScrambled={isScrambled}
+                scrambleTick={scrambleTick}
                 compact={compact}
               />
             </div>
@@ -667,20 +752,33 @@ export const MetricsHeader: React.FC<MetricsHeaderProps> = ({
                 </span>
               </span>
               <span className="flex items-center gap-1 shrink-0">
-                <CrisisTrendChip trend={previewCrisisTrend} />
+                <CrisisTrendChip
+                  trend={previewCrisisTrend}
+                  exactDelta={previewCrisisDelta}
+                  hasMetricXray={hasMetricXray}
+                />
                 {crisisHot ? (
-                  <span
-                    title="危机≥75%：四维波动×1.3，预判信号受干扰；若≥80%终局将封锁里结局"
-                    className="px-1 font-mono text-[8px] font-bold text-rose-100 bg-rose-600/55 border border-rose-400/75 animate-pulse"
-                  >
-                    熔毁·干扰
-                  </span>
+                  hasRaidLens ? (
+                    <span
+                      title="【副本抗干扰护目镜】生效：高危机不会盲测，里结局红线放宽到 85%"
+                      className="px-1 font-mono text-[8px] font-bold text-cyan-100 bg-cyan-600/50 border border-cyan-300/75"
+                    >
+                      抗干扰·×{raidOverloadMultiplier}
+                    </span>
+                  ) : (
+                    <span
+                      title={`危机≥75%：四维波动×${raidOverloadMultiplier}，预判信号受干扰；若≥80%终局将封锁里结局`}
+                      className="px-1 font-mono text-[8px] font-bold text-rose-100 bg-rose-600/55 border border-rose-400/75 animate-pulse"
+                    >
+                      熔毁·干扰
+                    </span>
+                  )
                 ) : crisisOverload ? (
                   <span
-                    title="危机≥60%：高压过载，副本内四维变动幅度放大 ×1.3"
+                    title={`危机≥60%：高压过载，副本内四维变动幅度放大 ×${raidOverloadMultiplier}`}
                     className="px-1 font-mono text-[8px] font-bold text-amber-100 bg-amber-600/45 border border-amber-400/65"
                   >
-                    过载×1.3
+                    过载×{raidOverloadMultiplier}
                   </span>
                 ) : null}
                 <span

@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { BookOpenCheck, Calendar, HelpCircle, Sparkles, X } from 'lucide-react';
 import { WikiArticle } from '../data/realWorldWiki';
+import { renderInlineMarkup } from '../utils/inlineFormat';
 
 interface RealWorldWikiModalProps {
   article: WikiArticle | null;
@@ -98,7 +99,7 @@ export const RealWorldWikiModal: React.FC<RealWorldWikiModalProps> = ({
               <span>现实历史原型</span>
             </div>
             <p className="font-display text-[13.5px] leading-[1.85] text-parchment/92 text-justify bg-black/30 rounded-2xl p-3.5 border border-gold-400/15">
-              {article.realEvent}
+              {renderInlineMarkup(article.realEvent, 'wiki')}
             </p>
           </div>
 
@@ -108,7 +109,7 @@ export const RealWorldWikiModal: React.FC<RealWorldWikiModalProps> = ({
               <span>沙箱卡牌彩蛋映射</span>
             </div>
             <p className="text-[12.5px] leading-[1.75] text-sky-100/85 bg-sky-950/30 rounded-2xl p-3 border border-sky-400/25">
-              {article.inGameMapping}
+              {renderInlineMarkup(article.inGameMapping, 'wiki')}
             </p>
           </div>
         </div>

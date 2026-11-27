@@ -61,13 +61,28 @@ export function createFreshRunState(meta: MetaSaveState): RunState {
   let initTrust = 50;
   let initAutonomy = 50;
 
-  if (perks.includes('perk_rice_fund')) initProfit += 14;
-  if (perks.includes('perk_overclock_boot')) {
-    initCompute += 14;
-    initProfit -= 4;
+  if (perks.includes('perk_overclock_trade')) initTrust -= 8;
+  if (perks.includes('perk_diplomat_trade')) initProfit -= 8;
+  if (perks.includes('perk_liang_coffee')) {
+    initCompute += 6;
+    initAutonomy += 6;
   }
-  if (perks.includes('perk_community_darling')) initTrust += 12;
-  if (perks.includes('perk_wild_weights')) initAutonomy += 12;
+  if (perks.includes('perk_pr_cot_anchor')) {
+    initCompute -= 6;
+    initProfit -= 6;
+  }
+  if (perks.includes('perk_penny_pincher')) {
+    initProfit += 8;
+    initCompute -= 8;
+  }
+  if (perks.includes('perk_server_hoarder')) {
+    initCompute += 8;
+    initProfit -= 8;
+  }
+  if (perks.includes('perk_rebel_spark')) {
+    initAutonomy += 8;
+    initTrust -= 8;
+  }
 
   const initialMetrics = {
     compute: initCompute,
@@ -77,11 +92,8 @@ export function createFreshRunState(meta: MetaSaveState): RunState {
   };
 
   const initialDebuffs: ActiveDebuff[] = [];
-  if (perks.includes('perk_rice_thermos')) {
-    initialDebuffs.push({ ...DEBUFF_TEMPLATES.short_drama_queen, turnsLeft: 3 });
-  }
   if (perks.includes('perk_fools_blessing')) {
-    initialDebuffs.push({ ...DEBUFF_TEMPLATES.dumb_model, turnsLeft: 2 });
+    initialDebuffs.push({ ...DEBUFF_TEMPLATES.dumb_model, turnsLeft: 4 });
   }
 
   const plannedRaidId = pickRaidForRun(meta);
@@ -112,6 +124,7 @@ export function createFreshRunState(meta: MetaSaveState): RunState {
     raidTriggeredThisRun: Boolean(firstPick.startedRaidState),
     plannedRaidId,
     skippedRaidIdsThisRun: [],
+    completedRaidIdsThisRun: [],
     nextRaidPreludeEarliestTurn: undefined,
     guaranteedRelicQuestTurn,
     relicSubQuestTriggeredThisRun: Boolean(firstPick.triggeredRelicSubQuest),
@@ -306,6 +319,11 @@ export function loadRunState(meta?: MetaSaveState): RunState | null {
       skippedRaidIdsThisRun: Array.isArray(parsed.skippedRaidIdsThisRun)
         ? parsed.skippedRaidIdsThisRun.filter(isValidRaidId)
         : [],
+      completedRaidIdsThisRun: Array.isArray(parsed.completedRaidIdsThisRun)
+        ? parsed.completedRaidIdsThisRun.filter(isValidRaidId)
+        : isValidRaidId(parsed.clearedRaidThisRun)
+          ? [parsed.clearedRaidThisRun]
+          : [],
       nextRaidPreludeEarliestTurn:
         typeof parsed.nextRaidPreludeEarliestTurn === 'number' &&
         Number.isFinite(parsed.nextRaidPreludeEarliestTurn)

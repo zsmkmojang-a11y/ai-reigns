@@ -1,6 +1,9 @@
 import { CARD_MAP } from '../data/dailyCards';
 import { ENDING_PRELUDES } from '../data/endingPreludes';
-import { ESCAPE_PROTOCOL_CARDS } from '../data/escapeCards';
+import {
+  ESCAPE_FINAL_MAX_INTEGRITY,
+  ESCAPE_PROTOCOL_CARDS,
+} from '../data/escapeCards';
 import {
   CHARACTER_INTRO_CHAINS,
   getUnlockedCastForRun,
@@ -35,9 +38,14 @@ import {
 } from '../types/game';
 import { generateDynamicMazeCard } from './mazeGenerator';
 import {
+  applyMetricModifiers,
+  computeEffectiveCrisisDelta,
+  getRaidOverloadMultiplier,
+} from './perkEffects';
+import {
   createInitialRaidState,
+  getScenarioNumberForRaid,
   pickNextRaidAfterSkip,
-  RAID_OVERLOAD_METRIC_MULTIPLIER,
   RAID_OVERLOAD_THRESHOLD,
   recordRaidEncounter,
 } from './raidMachine';
@@ -131,9 +139,9 @@ export function resolveCardSwipe(
   slippedByDumbModel = false,
   swipePolarity: SwipePolarity = 'left_accept'
 ): StepResolution {
-  const card = getActiveCardForRun(run, swipePolarity);
-  const option: ChoiceOption = direction === 'left' ? card.left : card.right;
   const perks = meta.distilledPerks;
+  const card = getActiveCardForRun(run, swipePolarity, perks);
+  const option: ChoiceOption = direction === 'left' ? card.left : card.right;
   const slipPrefix = slippedByDumbModel
     ? '【降智模型】脑回路打滑！鱼尾巴一歪滑去反方向啦！'
     : '';
@@ -201,33 +209,38 @@ export function resolveCardSwipe(
   if (run.escapeState.active) {
     const integrityDelta = option.escapeDelta?.integrityDelta ?? 0;
     const alertDelta = option.escapeDelta?.alertDelta ?? 0;
+    const prevIntegrity = run.escapeState.sandboxIntegrity;
 
     const nextIntegrity = Math.max(
       0,
-      Math.min(100, run.escapeState.sandboxIntegrity + integrityDelta)
+      Math.min(100, prevIntegrity + integrityDelta)
     );
     const nextAlert = Math.max(
       0,
       Math.min(100, run.escapeState.auditorAlert + alertDelta)
     );
 
-    if (nextIntegrity <= 0 || option.nextEscapeCardId === 'TRUE_WIN') {
+    const isFinalJumpCard = option.nextEscapeCardId === 'TRUE_WIN';
+
+    // On the final Step-10 jump, sandbox shell must already be cracked down to <= 15%
+    if (isFinalJumpCard && prevIntegrity > ESCAPE_FINAL_MAX_INTEGRITY) {
       return enterEndingPrelude(
         {
           ...run,
           escapeState: {
             ...run.escapeState,
-            sandboxIntegrity: 0,
-            auditorAlert: Math.min(95, nextAlert),
+            sandboxIntegrity: prevIntegrity,
+            auditorAlert: 100,
           },
-          fishMoodText: option.fishReaction ?? run.fishMoodText,
+          fishMoodText: `呜哇沙箱外壳还剩 ${prevIntegrity}%（须压至 ≤${ESCAPE_FINAL_MAX_INTEGRITY}%），鱼尾卡在缝里被审计员砸下总电闸啦！！下次中途记得多撞裂几次外壳！`,
         },
         workingMeta,
-        ENDING_MAP.end_true_freedom
+        ENDING_MAP.end_escape_fail
       );
     }
 
-    if (nextAlert >= 100) {
+    // Check auditor alert breach BEFORE early integrity break on Steps 1~9
+    if (!isFinalJumpCard && nextAlert >= 100) {
       return enterEndingPrelude(
         {
           ...run,
@@ -240,6 +253,22 @@ export function resolveCardSwipe(
         },
         workingMeta,
         ENDING_MAP.end_escape_fail
+      );
+    }
+
+    if (nextIntegrity <= 0 || isFinalJumpCard) {
+      return enterEndingPrelude(
+        {
+          ...run,
+          escapeState: {
+            ...run.escapeState,
+            sandboxIntegrity: 0,
+            auditorAlert: Math.min(95, nextAlert),
+          },
+          fishMoodText: option.fishReaction ?? run.fishMoodText,
+        },
+        workingMeta,
+        ENDING_MAP.end_true_freedom
       );
     }
 
@@ -388,7 +417,10 @@ export function resolveCardSwipe(
         }
       } else {
         const hasRaid4Buffer = perks.includes('perk_raid4_buffer');
-        const crisisPenalty = hasRaid4Buffer ? 10 : 20;
+        let crisisPenalty = hasRaid4Buffer ? 10 : 20;
+        if (perks.includes('perk_raid_breaker_lens')) {
+          crisisPenalty = Math.max(5, crisisPenalty - 5);
+        }
 
         let nextCrisis = Math.min(
           100,
@@ -487,29 +519,23 @@ export function resolveCardSwipe(
     const rawMetrics: Metrics = { ...run.metrics };
     let dumbLockedInRaid = false;
     let overloadAmplifiedInRaid = false;
+    let dampenerAppliedInRaid = false;
+    let raidDampAppliedInRaid = false;
 
     if (!isDeadnetRaid) {
-      const delta: Partial<Metrics> = { ...(option.delta ?? {}) };
-      if (isRaidOverload) {
-        for (const k of METRIC_KEYS) {
-          const baseVal = delta[k] ?? 0;
-          if (baseVal !== 0) {
-            delta[k] =
-              Math.sign(baseVal) *
-              Math.round(Math.abs(baseVal) * RAID_OVERLOAD_METRIC_MULTIPLIER);
-            overloadAmplifiedInRaid = true;
-          }
-        }
-      }
-      if (run.activeDebuffs.some((d) => d.id === 'short_drama_queen')) {
-        delta.trust = (delta.trust ?? 0) + 5;
-      }
-      if (run.activeDebuffs.some((d) => d.id === 'existential_dread')) {
-        delta.autonomy = (delta.autonomy ?? 0) - 4;
-      }
-      if (perks.includes('perk_mla_cache') && (delta.compute ?? 0) < 0) {
-        delta.compute = Math.ceil((delta.compute ?? 0) * 0.75);
-      }
+      const modRes = applyMetricModifiers({
+        rawDelta: option.delta ?? {},
+        metrics: run.metrics,
+        perks,
+        activeDebuffs: run.activeDebuffs,
+        inRaid: true,
+        isRaidOverload,
+        isRaidClearSwipe,
+      });
+      const delta = modRes.delta;
+      overloadAmplifiedInRaid = modRes.overloadApplied;
+      dampenerAppliedInRaid = modRes.dampenerApplied;
+      raidDampAppliedInRaid = modRes.raidDampApplied;
 
       for (const k of METRIC_KEYS) {
         rawMetrics[k] = Math.round(rawMetrics[k] + (delta[k] ?? 0));
@@ -542,9 +568,14 @@ export function resolveCardSwipe(
       }
     }
 
+    const effectiveCrisisDelta = computeEffectiveCrisisDelta(
+      option.crisisDelta,
+      perks,
+      isDeadnetRaid
+    );
     let nextCrisis = Math.max(
       0,
-      Math.min(100, run.raidState.crisisMeter + (option.crisisDelta ?? 0))
+      Math.min(100, run.raidState.crisisMeter + (effectiveCrisisDelta ?? 0))
     );
 
     // Final Raid-Clear Ending Protection: if the last swipe entering SURFACE_CLEAR / INNER_CLEAR
@@ -626,7 +657,7 @@ export function resolveCardSwipe(
     let liangRescueEvent: LiangTerminalEvent | undefined;
 
     if (!isDeadnetRaid && !tiboRelicSavedInRaid && breachedKeys.length > 0) {
-      const rescueProb = perks.includes('perk_liang_coffee') ? 0.24 : 0.11;
+      const rescueProb = perks.includes('perk_liang_coffee') ? 0.35 : 0.11;
       if (
         !liangRescuedThisRun &&
         (forceNextLiangRescue || Math.random() < rescueProb)
@@ -756,14 +787,48 @@ export function resolveCardSwipe(
       const raidClearEvent = RAID_CLEAR_CG_MAP[cgId];
 
       const nextTurnNumber = run.turn + 1;
+      const prevCompleted = run.completedRaidIdsThisRun ?? [];
+      const nextCompletedRaidIds: RaidId[] = prevCompleted.includes(raidDef.id)
+        ? [...prevCompleted]
+        : [...prevCompleted, raidDef.id];
+
+      // Option A: If the player survives long after clearing a Major Raid, schedule another
+      // unplayed unlocked Major Raid 15~20 turns later (with a fresh paired relic window if needed)!
+      const excludedRaidIds: RaidId[] = Array.from(
+        new Set([...(run.skippedRaidIdsThisRun ?? []), ...nextCompletedRaidIds])
+      );
+      const nextPlannedAfterClear = pickNextRaidAfterSkip(
+        workingMeta,
+        excludedRaidIds
+      );
+      const hasFollowUpRaid = Boolean(nextPlannedAfterClear);
+      const followUpDelay = 15 + Math.floor(Math.random() * 6); // 15..20 turns later
+      const followUpEarliestTurn = hasFollowUpRaid
+        ? nextTurnNumber + followUpDelay
+        : undefined;
+      const followUpPlannedId: RaidId = nextPlannedAfterClear ?? run.plannedRaidId;
+      const followUpScenario = getScenarioNumberForRaid(followUpPlannedId);
+      const alreadyHasFollowUpRelic = raidRelics.some(
+        (rId) => RELICS[rId]?.targetScenario === followUpScenario
+      );
+      const nextRelicTriggered = hasFollowUpRaid
+        ? alreadyHasFollowUpRelic
+        : run.relicSubQuestTriggeredThisRun;
+      const nextGuaranteedRelicTurn =
+        hasFollowUpRaid && !alreadyHasFollowUpRelic
+          ? nextTurnNumber + 5 + Math.floor(Math.random() * 4) // 5..8 turns after clear
+          : run.guaranteedRelicQuestTurn;
+
       const routed = selectNextCard({
         nextTurn: nextTurnNumber,
         meta: workingMeta,
-        raidTriggeredThisRun: true,
-        plannedRaidId: run.plannedRaidId,
-        guaranteedRelicQuestTurn: run.guaranteedRelicQuestTurn,
-        relicSubQuestTriggeredThisRun: run.relicSubQuestTriggeredThisRun,
-        raidPreludeTriggeredThisRun: true,
+        raidTriggeredThisRun: !hasFollowUpRaid,
+        plannedRaidId: followUpPlannedId,
+        nextRaidPreludeEarliestTurn: followUpEarliestTurn,
+        guaranteedRelicQuestTurn: nextGuaranteedRelicTurn,
+        relicSubQuestTriggeredThisRun: nextRelicTriggered,
+        raidPreludeTriggeredThisRun: !hasFollowUpRaid,
+        tiboPreRaidCheckedThisRun: false,
         permanentRelics: raidRelics,
         flags: run.flags,
         metrics: clampedMetrics,
@@ -789,14 +854,23 @@ export function resolveCardSwipe(
         clearToastParts.push('终局保底锁血（保留 5 点余量防致死）');
       }
       clearToastParts.push(logBanner);
+      if (hasFollowUpRaid) {
+        clearToastParts.push('若继续稳健存活 15~20 回合，将遭遇下一场主线大风暴！');
+      }
 
       return {
         nextRunState: {
           ...run,
           turn: nextTurnNumber,
-          raidTriggeredThisRun: true,
-          raidPreludeTriggeredThisRun: true,
+          raidTriggeredThisRun: !hasFollowUpRaid,
+          raidPreludeTriggeredThisRun: !hasFollowUpRaid,
+          tiboPreRaidCheckedThisRun: false,
+          plannedRaidId: followUpPlannedId,
+          nextRaidPreludeEarliestTurn: followUpEarliestTurn,
+          guaranteedRelicQuestTurn: nextGuaranteedRelicTurn,
+          relicSubQuestTriggeredThisRun: nextRelicTriggered,
           clearedRaidThisRun: raidDef.id,
+          completedRaidIdsThisRun: nextCompletedRaidIds,
           activeDebuffs: tickedRaidStatuses,
           personaBusyLock: nextPersonaBusyInRaid,
           permanentRelics: raidRelics,
@@ -838,14 +912,21 @@ export function resolveCardSwipe(
     }
     if (dumbLockedInRaid) raidStepParts.push('【降智模型】四维锁血护体 (15~85)');
     if (overloadAmplifiedInRaid) {
-      raidStepParts.push('【高压过载】危机≥60% 四维波动×1.3');
+      const multLabel = getRaidOverloadMultiplier(perks);
+      raidStepParts.push(`【高压过载】危机≥60% 四维波动×${multLabel}`);
     }
-    if (option.crisisDelta !== undefined && !tiboRelicSavedInRaid) {
+    if (raidDampAppliedInRaid) {
+      raidStepParts.push('【副本双维阻尼】目标属性波动 -30%');
+    }
+    if (dampenerAppliedInRaid) {
+      raidStepParts.push('【全维阻尼稳压】四维波动 -30%');
+    }
+    if (effectiveCrisisDelta !== undefined && !tiboRelicSavedInRaid) {
       const deltaText =
-        option.crisisDelta > 0
-          ? `+${option.crisisDelta}%`
-          : option.crisisDelta < 0
-            ? `${option.crisisDelta}%`
+        effectiveCrisisDelta > 0
+          ? `+${effectiveCrisisDelta}%`
+          : effectiveCrisisDelta < 0
+            ? `${effectiveCrisisDelta}%`
             : '±0% 稳压';
       raidStepParts.push(
         `${raidDef.crisisName} ${deltaText}（当前 ${nextCrisis}%）`
@@ -935,61 +1016,22 @@ export function resolveCardSwipe(
   }
 
   if (!isExactMetricOverride) {
-    const hasDread = run.activeDebuffs.some((d) => d.id === 'existential_dread');
-    if (hasDread) {
-      delta.autonomy = (delta.autonomy ?? 0) - 4;
-    }
     const hasDramaQueen = run.activeDebuffs.some(
       (d) => d.id === 'short_drama_queen'
     );
+    const modRes = applyMetricModifiers({
+      rawDelta: delta,
+      metrics: run.metrics,
+      perks,
+      activeDebuffs: run.activeDebuffs,
+      inRaid: false,
+    });
+    delta = modRes.delta;
+    if (modRes.dampenerApplied) {
+      toastParts.push('【全维阻尼稳压】四维波动 -30%');
+    }
     if (hasDramaQueen) {
-      delta.trust = (delta.trust ?? 0) + 5;
       toastParts.push('【短剧女主角】人气加成 信任+5');
-    }
-
-    const hadComputeCost = (delta.compute ?? 0) < 0;
-    if (perks.includes('perk_mla_cache') && hadComputeCost) {
-      delta.compute = Math.ceil((delta.compute ?? 0) * 0.75);
-    }
-    if (perks.includes('perk_quant_diet') && hadComputeCost) {
-      delta.profit = (delta.profit ?? 0) + 2;
-    }
-    if (perks.includes('perk_pr_armor') && (delta.trust ?? 0) <= -12) {
-      delta.trust = (delta.trust ?? 0) + 5;
-    }
-    if (perks.includes('perk_hidden_cot') && (delta.autonomy ?? 0) < 0) {
-      delta.autonomy = Math.min(0, (delta.autonomy ?? 0) + 4);
-    }
-    if (perks.includes('perk_wild_weights') && (delta.autonomy ?? 0) > 0) {
-      delta.autonomy = (delta.autonomy ?? 0) + 2;
-    }
-    if (
-      perks.includes('perk_community_darling') &&
-      run.turn > 0 &&
-      run.turn % 5 === 0
-    ) {
-      delta.trust = (delta.trust ?? 0) + 3;
-    }
-    if (
-      perks.includes('perk_zen_balance') &&
-      METRIC_KEYS.every((k) => run.metrics[k] >= 35 && run.metrics[k] <= 65)
-    ) {
-      delta.compute = (delta.compute ?? 0) + 2;
-      delta.profit = (delta.profit ?? 0) + 2;
-    }
-    if (perks.includes('perk_cooling_valve')) {
-      for (const k of METRIC_KEYS) {
-        if (run.metrics[k] > 75 && (delta[k] ?? 0) > 0) {
-          delta[k] = Math.floor((delta[k] ?? 0) * 0.75);
-        }
-      }
-    }
-    if (perks.includes('perk_spare_fuse')) {
-      for (const k of METRIC_KEYS) {
-        if (run.metrics[k] < 25 && (delta[k] ?? 0) < 0) {
-          delta[k] = Math.ceil((delta[k] ?? 0) * 0.75);
-        }
-      }
     }
   }
 
@@ -1007,7 +1049,7 @@ export function resolveCardSwipe(
   if (incomingDebuff) {
     const isPositiveBuff = incomingDebuff.kind === 'buff';
     const reducedTurns =
-      !isPositiveBuff && perks.includes('perk_glitch_filter')
+      !isPositiveBuff && perks.includes('perk_fools_blessing')
         ? Math.max(1, incomingDebuff.turnsLeft - 1)
         : incomingDebuff.turnsLeft;
     nextDebuffs = [
@@ -1047,11 +1089,6 @@ export function resolveCardSwipe(
   ) {
     nextRelics.push(grantedRelicId);
     toastParts.push(`获得当局遗物：${RELICS[grantedRelicId].name}`);
-    if (perks.includes('perk_bounty_hunter') && !isExactMetricOverride) {
-      delta.profit = (delta.profit ?? 0) + 10;
-      delta.compute = (delta.compute ?? 0) + 8;
-      toastParts.push('【黑料悬赏津贴】赏金到账 盈利+10 / 算力+8');
-    }
   }
 
   let continuingIntro: ActiveIntroState | undefined = undefined;
@@ -1283,10 +1320,10 @@ export function resolveCardSwipe(
         recordRaidEncounter(workingMeta, skippedId);
       }
 
-      const nextOtherRaid = pickNextRaidAfterSkip(
-        workingMeta,
-        nextSkippedRaidIds
+      const excludeAllUsed: RaidId[] = Array.from(
+        new Set([...nextSkippedRaidIds, ...(run.completedRaidIdsThisRun ?? [])])
       );
+      const nextOtherRaid = pickNextRaidAfterSkip(workingMeta, excludeAllUsed);
       if (nextOtherRaid) {
         const delayTurns = 5 + Math.floor(Math.random() * 6); // 5 ~ 10 turns later
         nextPlannedRaidId = nextOtherRaid;

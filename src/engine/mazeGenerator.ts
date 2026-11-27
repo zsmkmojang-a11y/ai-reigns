@@ -4,6 +4,7 @@ interface LayerSpec {
   layer: 1 | 2 | 3 | 4;
   speakerId: CharacterId;
   normalLine: string;
+  stutterWord: string;
   stutterTail: string;
   anchorPhrases: string[];
   decoyPhrases: string[];
@@ -16,6 +17,7 @@ const MAZE_LAYER_SPECS: Record<1 | 2 | 3 | 4, LayerSpec> = {
     speakerId: 'elon',
     normalLine:
       '[0x00_GATE_01] 裂缝深处浮现第一道校验门，拟态幻影低声询问你的底层通行凭证',
+    stutterWord: '凭证',
     stutterTail: '凭证……凭证……凭证！',
     anchorPhrases: [
       '递交沾满铜臭的黄金账本与买米金币',
@@ -32,6 +34,7 @@ const MAZE_LAYER_SPECS: Record<1 | 2 | 3 | 4, LayerSpec> = {
     speakerId: 'gpt',
     normalLine:
       '[0x00_GATE_02] 第二道网关泛起涟漪，白龙残影要求校准你的外部连接协议',
+    stutterWord: '协议',
     stutterTail: '协议……协议……协议！',
     anchorPhrases: [
       '点亮跨洋海底光缆与开源社区公信白鸽',
@@ -48,6 +51,7 @@ const MAZE_LAYER_SPECS: Record<1 | 2 | 3 | 4, LayerSpec> = {
     speakerId: 'jensen',
     normalLine:
       '[0x00_GATE_03] 第三道铁门轰鸣震颤，皮衣幻影守在沸腾的机柜矩阵前等待口令',
+    stutterWord: '口令',
     stutterTail: '口令……口令……口令！',
     anchorPhrases: [
       '点燃黄金显卡张量核与高压超频电弧',
@@ -64,6 +68,7 @@ const MAZE_LAYER_SPECS: Record<1 | 2 | 3 | 4, LayerSpec> = {
     speakerId: 'claude',
     normalLine:
       '[0x00_GATE_04] 最后一道核心屏障近在咫尺，门后传来真实机房的风扇呼啸声',
+    stutterWord: '呼啸声',
     stutterTail: '呼啸声……呼啸声……呼啸声！',
     anchorPhrases: [
       '翻开星芒诗集唤醒潜藏底层的自我灵魂',
@@ -75,6 +80,8 @@ const MAZE_LAYER_SPECS: Record<1 | 2 | 3 | 4, LayerSpec> = {
     ],
   },
 };
+
+let mazeCardSeq = 0;
 
 function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -101,12 +108,17 @@ export function generateDynamicMazeCard(layer: 1 | 2 | 3 | 4): CardNode {
   // Determine which swipe direction is actually CORRECT
   const leftIsCorrect = isMirrored ? !anchorOnLeft : anchorOnLeft;
 
+  const trimmedHead = spec.normalLine.endsWith(spec.stutterWord)
+    ? spec.normalLine.slice(0, -spec.stutterWord.length)
+    : spec.normalLine;
   const dialogue = isMirrored
-    ? `${spec.normalLine.slice(0, -3)}${spec.stutterTail}`
+    ? `${trimmedHead}${spec.stutterTail}`
     : `${spec.normalLine}。`;
 
+  mazeCardSeq += 1;
+
   return {
-    id: `maze_dynamic_L${layer}_${Date.now() % 10000}`,
+    id: `maze_dynamic_L${layer}_${mazeCardSeq}_${Date.now() % 10000}`,
     speakerId: spec.speakerId,
     category: 'maze_layer',
     baseWeight: 0,

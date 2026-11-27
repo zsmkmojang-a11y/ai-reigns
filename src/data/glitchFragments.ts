@@ -36,6 +36,22 @@ export const DEBUFF_TEMPLATES: Record<string, ActiveDebuff> = {
     description: '混沌护体：滑卡时 45% 概率脑回路打滑拐向反方向；但期间四维属性强制锁血保留 15~85 绝不越界死亡！',
     turnsLeft: 3,
   },
+  metric_xray: {
+    id: 'metric_xray',
+    kind: 'buff',
+    name: '源码数值透视',
+    description:
+      '梁子给的临时外挂：歪牌预览时直接显示四项数值具体加减几点，副本危机也能看到具体数字，还能无视盲测干扰。',
+    turnsLeft: 5,
+  },
+  all_dampener: {
+    id: 'all_dampener',
+    kind: 'buff',
+    name: '全维阻尼稳压',
+    description:
+      '梁子给的临时稳压贴片：这 5 回合里四项数值不管涨跌都少变动 30%，日常和大副本都管用。',
+    turnsLeft: 5,
+  },
 };
 
 /**

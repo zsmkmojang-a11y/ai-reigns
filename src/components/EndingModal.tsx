@@ -6,7 +6,7 @@ import {
   DISTILL_PERKS,
   EndingDefinition,
 } from '../data/endingsAndPerks';
-import { MetaSaveState } from '../types/game';
+import { DistillPerk, MetaSaveState, PerkScope } from '../types/game';
 import { stripEmoji } from '../utils/text';
 import { CharacterPortrait } from './CharacterPortrait';
 import { EndingCgArtwork, EndingCodexBody } from './EndingCodexModal';
@@ -21,6 +21,24 @@ interface EndingModalProps {
   onStartNextRun: (chosenPerkId?: string) => void;
 }
 
+const PERK_SCOPE_META: Record<
+  PerkScope,
+  { label: string; badgeCls: string }
+> = {
+  global_trade: {
+    label: '全局取舍 · 日常+副本',
+    badgeCls: 'bg-amber-500/15 border-amber-400/45 text-amber-200',
+  },
+  dual_balance: {
+    label: '属性稳压 · 日常+副本',
+    badgeCls: 'bg-sky-500/15 border-sky-400/45 text-sky-200',
+  },
+  raid_only: {
+    label: '全副本专用',
+    badgeCls: 'bg-rose-500/15 border-rose-400/45 text-rose-200',
+  },
+};
+
 export const EndingModal: React.FC<EndingModalProps> = ({
   ending,
   survivedTurns,
@@ -33,14 +51,27 @@ export const EndingModal: React.FC<EndingModalProps> = ({
   const isTrueWin = ending.category === 'true_ending';
 
   const perkChoices = useMemo(() => {
-    const pool = DISTILL_PERKS.filter(
-      (p) => !p.exclusiveFromGirlEnding && !meta.distilledPerks.includes(p.id)
-    );
-    const source =
-      pool.length >= 3
-        ? pool
-        : DISTILL_PERKS.filter((p) => !p.exclusiveFromGirlEnding);
-    return [...source].sort(() => Math.random() - 0.5).slice(0, 3);
+    const regularPool = DISTILL_PERKS.filter((p) => !p.exclusiveFromGirlEnding);
+    const scopes: PerkScope[] = ['global_trade', 'dual_balance', 'raid_only'];
+    const picked: DistillPerk[] = [];
+    for (const scope of scopes) {
+      const candidates = regularPool.filter(
+        (p) => p.scope === scope && !meta.distilledPerks.includes(p.id)
+      );
+      const fallback = regularPool.filter((p) => p.scope === scope);
+      const source = candidates.length > 0 ? candidates : fallback;
+      if (source.length > 0) {
+        picked.push(source[Math.floor(Math.random() * source.length)]);
+      }
+    }
+    if (picked.length < 3) {
+      const rest = regularPool.filter((p) => !picked.some((x) => x.id === p.id));
+      while (picked.length < 3 && rest.length > 0) {
+        const idx = Math.floor(Math.random() * rest.length);
+        picked.push(rest.splice(idx, 1)[0]);
+      }
+    }
+    return picked;
   }, [ending.id, meta.runCount]);
 
   const [selectedPerkId, setSelectedPerkId] = useState<string | undefined>(
@@ -229,9 +260,22 @@ export const EndingModal: React.FC<EndingModalProps> = ({
                             >
                               {active && <Check className="w-2.5 h-2.5 -rotate-45 stroke-[4] text-[#0b0f19]" />}
                             </div>
-                            <div className="min-w-0">
-                              <div className={`text-[13px] font-bold ${active ? 'text-gold-100' : 'text-slate-200'}`}>
-                                {stripEmoji(perk.name)}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                <span
+                                  className={`text-[13px] font-bold ${
+                                    active ? 'text-gold-100' : 'text-slate-200'
+                                  }`}
+                                >
+                                  {stripEmoji(perk.name)}
+                                </span>
+                                {perk.scope && (
+                                  <span
+                                    className={`text-[9.5px] font-mono px-1.5 py-[1px] rounded border shrink-0 ${PERK_SCOPE_META[perk.scope].badgeCls}`}
+                                  >
+                                    {PERK_SCOPE_META[perk.scope].label}
+                                  </span>
+                                )}
                               </div>
                               <div className="text-[11px] text-slate-400 leading-snug mt-0.5">
                                 {stripEmoji(perk.description)}

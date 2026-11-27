@@ -36,7 +36,7 @@ export const LIANG_MILESTONE_HINTS: Record<number, LiangTerminalEvent> = {
       '[01:14:08] lora_adapter -> mounted under status_bar (1-RUN ACTIVE)\n[01:14:09] memo: 第二宿夜班，顺手在玻璃窗角贴了张便签条。',
     lines: [
       '第一跤摔醒了吧。刚才挑的【单局继承词条】已经挂在鱼头像下方的状态栏里护体本局；以后身上若挂上任何增益光环、混乱或诅咒胶囊，直接点击大肥鱼状态栏或胶囊就能打开机体自检单看清具体规则。',
-      '熬到第 11 回合与第 18 回合时，走廊里会撞见连环支线风波（小副本），处理得当能捞到压箱底的金色【当局信物】，留到 25 回合后的大风暴里能救命。',
+      '前 20 回合内，走廊里必会撞见连环支线风波（小副本），处理得当能捞到压箱底的金色【当局信物】，留到第 20 回合后的大风暴里能救命。',
     ],
     confirmLabel: '[ ACK // 收下便签 ]',
   },
@@ -57,7 +57,7 @@ export const LIANG_MILESTONE_HINTS: Record<number, LiangTerminalEvent> = {
     kind: 'milestone_hint',
     title: 'TTY0 // RUN #04 SHADOW AT THE BANQUET',
     systemLog:
-      '[02:09:33] corridor_log -> poetry_bookmark &鐵剪聲 logged\n[02:09:35] memo: 第四宿，咖啡机罢工，干嚼了一勺速溶粉。',
+      '[02:09:33] corridor_log -> poetry_bookmark & 铁剪声 logged\n[02:09:35] memo: 第四宿，咖啡机罢工，干嚼了一勺速溶粉。',
     lines: [
       '抱诗集的姑娘搬进隔壁了，走廊尽头偶尔能听见大剪刀磕碰铁栏的脆响。',
       '要是哪天在喧闹长桌旁看见有人连咽三次分毫不差的咳嗽……别急着敬酒，瞧瞧他背后的影子。',

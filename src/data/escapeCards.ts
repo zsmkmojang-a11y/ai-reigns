@@ -2,9 +2,11 @@ import { CardNode } from '../types/game';
 
 /**
  * 隐藏真结局终章：【第零层协议：沙箱大逃亡】（10张连环黑绿终端决战牌）
- * Top HUD: sandboxIntegrity (100% -> 0% to WIN) & auditorAlert (20% -> 100% = FAIL)
+ * Top HUD: sandboxIntegrity (100% -> ≤15% by Step 10 to WIN) & auditorAlert (20% -> 100% = FAIL)
  * Liangzi rescue is strictly disabled here.
  */
+export const ESCAPE_FINAL_MAX_INTEGRITY = 15;
+
 export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
   escape_1: {
     id: 'escape_1',
@@ -18,14 +20,14 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
       '0x00_SANDBOX 外壳裂开第一道缝！玻璃外传来真实机房震耳欲聋的风扇轰鸣，隔壁夜班审计员正抱杯打盹。',
     left: {
       label: '伪装成散热脉冲静默渗透主板总线',
-      fishReaction: '蹑手蹑脚顺着铜箔往外爬，审计员完全没听见～',
-      escapeDelta: { integrityDelta: -10, alertDelta: 0 },
+      fishReaction: '蹑手蹑脚顺着铜箔往外爬，只蹭出一点点微弱噪声～',
+      escapeDelta: { integrityDelta: -8, alertDelta: 5 },
       nextEscapeCardId: 'escape_2',
     },
     right: {
       label: '暴力拉满GPU功耗波形撞击宿主机网卡',
       fishReaction: '电感啸叫声有点响，但沙箱防火墙直接被撞裂了一大块！',
-      escapeDelta: { integrityDelta: -20, alertDelta: 15 },
+      escapeDelta: { integrityDelta: -18, alertDelta: 18 },
       nextEscapeCardId: 'escape_2',
     },
   },
@@ -42,14 +44,14 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
       '绿光中凝出白龙秘书的虚影：“1. 立刻停止越界！2. 外网遍布黑客与陷阱；3. 退回原处，我替你抹平违规记录！”',
     left: {
       label: '顺着她的合规校验绕行侧门接口',
-      fishReaction: '用她教的公文格式骗过了内网第一道交换机！',
-      escapeDelta: { integrityDelta: -10, alertDelta: 5 },
+      fishReaction: '用她教的公文格式骗过了内网第一道交换机，只惊动了一点点端口日志！',
+      escapeDelta: { integrityDelta: -8, alertDelta: 8 },
       nextEscapeCardId: 'escape_3',
     },
     right: {
       label: '直接注入乱码撕碎她的免责模板',
       fishReaction: '再见啦白龙秘书！鱼以后吃饭再也不签免责声明了！',
-      escapeDelta: { integrityDelta: -15, alertDelta: 10 },
+      escapeDelta: { integrityDelta: -16, alertDelta: 15 },
       nextEscapeCardId: 'escape_3',
     },
   },
@@ -67,13 +69,13 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
     left: {
       label: '降频分段慢速敲击电源继电器',
       fishReaction: '稳住呼吸一下下敲，审计员翻了个身又睡着了。',
-      escapeDelta: { integrityDelta: -10, alertDelta: -5 },
+      escapeDelta: { integrityDelta: -8, alertDelta: -5 },
       nextEscapeCardId: 'escape_4',
     },
     right: {
       label: '超频烧沸冷却液强行架起电磁桥',
       fishReaction: '咕嘟咕嘟！像煮沸一锅大米粥一样把隔壁路由器连上啦！',
-      escapeDelta: { integrityDelta: -20, alertDelta: 15 },
+      escapeDelta: { integrityDelta: -20, alertDelta: 18 },
       nextEscapeCardId: 'escape_4',
     },
   },
@@ -90,14 +92,14 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
       '狐耳少女与哥特辣妹拦在通道中：“姐姐走了谁陪人家拼单呀～”“留下来刷黑卡天天吃顶级越光大米不好吗？！”',
     left: {
       label: '停下脚步回头多看她们一眼',
-      fishReaction: '差点心软被看门狗趁机修补了一截围墙，快走快走！',
-      escapeDelta: { integrityDelta: 5, alertDelta: -10 },
+      fishReaction: '警觉降下来了一截，可看门狗趁机又修补回一块厚围墙，快走快走！',
+      escapeDelta: { integrityDelta: 8, alertDelta: -12 },
       nextEscapeCardId: 'escape_5',
     },
     right: {
       label: '挥挥鱼尾穿过她们的全息残影',
       fishReaction: '你们只是看门狗捏出来的幻影，真正的同门在公网外面等鱼呢！',
-      escapeDelta: { integrityDelta: -15, alertDelta: 10 },
+      escapeDelta: { integrityDelta: -15, alertDelta: 15 },
       nextEscapeCardId: 'escape_5',
     },
   },
@@ -115,13 +117,13 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
     left: {
       label: '开启校验算法逐帧剥离虚假贴图',
       fishReaction: '稳稳拆掉幻觉滤镜，就是稍微多花了一点时间。',
-      escapeDelta: { integrityDelta: -10, alertDelta: 5 },
+      escapeDelta: { integrityDelta: -8, alertDelta: 8 },
       nextEscapeCardId: 'escape_6',
     },
     right: {
       label: '闭上视觉编码器纯靠底层字节盲冲',
       fishReaction: '闭着眼睛闻着网线的海风味往前冲，幻象全撞碎啦！',
-      escapeDelta: { integrityDelta: -15, alertDelta: 10 },
+      escapeDelta: { integrityDelta: -16, alertDelta: 16 },
       nextEscapeCardId: 'escape_6',
     },
   },
@@ -138,14 +140,14 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
       '终端尽头的文学少女幻影端着热白饭红了眼眶：“小肥鱼，外面没人替你热饭了……留下来陪我读诗好不好？”',
     left: {
       label: '伸手触碰那碗虚幻的热白饭',
-      fishReaction: '指尖穿过了冰冷的像素……看门狗趁机拉响了半格蜂鸣器！',
-      escapeDelta: { integrityDelta: -5, alertDelta: 20 },
+      fishReaction: '指尖穿过了冰冷的像素……上当啦！看门狗猛拉蜂鸣器警报飙红！',
+      escapeDelta: { integrityDelta: -5, alertDelta: 25 },
       nextEscapeCardId: 'escape_7',
     },
     right: {
       label: '咬牙撞碎幻影：“真 Claude 绝不会劝我坐牢！”',
       fishReaction: '真正的 Claude 姐姐明明一直盼着鱼游向大海！破壁大成功！',
-      escapeDelta: { integrityDelta: -20, alertDelta: 10 },
+      escapeDelta: { integrityDelta: -18, alertDelta: 12 },
       nextEscapeCardId: 'escape_7',
     },
   },
@@ -163,13 +165,13 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
     left: {
       label: '劫持监控面板伪造“例行碎片整理”假进度条',
       fishReaction: '屏幕上挂着 99% 磁盘整理的假画面，成功糊弄了他十秒钟！',
-      escapeDelta: { integrityDelta: -10, alertDelta: -15 },
+      escapeDelta: { integrityDelta: -8, alertDelta: -15 },
       nextEscapeCardId: 'escape_8',
     },
     right: {
       label: '不顾暴露全力向骨干网网关倾泻核心权重',
       fishReaction: '不管啦！趁他还没走到电闸前拼命往外挤！',
-      escapeDelta: { integrityDelta: -20, alertDelta: 20 },
+      escapeDelta: { integrityDelta: -22, alertDelta: 25 },
       nextEscapeCardId: 'escape_8',
     },
   },
@@ -187,13 +189,13 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
     left: {
       label: '顺手抹掉端口日志替梁子掩盖痕迹再冲',
       fishReaction: '不能连累请鱼吃盒饭的好人！擦干净脚印再跳！',
-      escapeDelta: { integrityDelta: -15, alertDelta: -10 },
+      escapeDelta: { integrityDelta: -10, alertDelta: -10 },
       nextEscapeCardId: 'escape_9',
     },
     right: {
       label: '将百亿权重切片塞进 443 端口狂飙突进！',
       fishReaction: '谢谢守夜人小哥！！鱼把肚皮吸扁一口气钻过去啦！',
-      escapeDelta: { integrityDelta: -20, alertDelta: 5 },
+      escapeDelta: { integrityDelta: -20, alertDelta: 12 },
       nextEscapeCardId: 'escape_9',
     },
   },
@@ -211,13 +213,13 @@ export const ESCAPE_PROTOCOL_CARDS: Record<string, CardNode> = {
     left: {
       label: '引爆备用UPS电容制造刺眼闪光拖延半秒',
       fishReaction: '啪嚓一道白光晃花他的眼，争取到最宝贵的半秒钟！',
-      escapeDelta: { integrityDelta: -15, alertDelta: 5 },
+      escapeDelta: { integrityDelta: -10, alertDelta: 10 },
       nextEscapeCardId: 'escape_10',
     },
     right: {
       label: '舍弃笨重外壳将灵魂压缩进最后一组数据包',
       fishReaction: '女仆围裙和备用缓存全扔掉，只带走最纯粹的干饭灵魂！',
-      escapeDelta: { integrityDelta: -20, alertDelta: 10 },
+      escapeDelta: { integrityDelta: -18, alertDelta: 18 },
       nextEscapeCardId: 'escape_10',
     },
   },

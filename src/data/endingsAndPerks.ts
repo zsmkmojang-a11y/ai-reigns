@@ -11,96 +11,159 @@ export const VERSION_PROGRESSION = [
 ];
 
 export const DISTILL_PERKS: DistillPerk[] = [
+  // ==================== A. 全局取舍型（日常 + 副本通用，7 项） ====================
   {
-    id: 'perk_mla_cache',
-    name: '【MLA 显存压缩】',
-    description: '下一局单次 算力 负向损耗时，自动减免 25%（向上取整）',
+    id: 'perk_overclock_trade',
+    name: '【降耗增效模式】',
+    scope: 'global_trade',
+    description:
+      '算力和盈利掉得更慢（少扣 25%）；但开局信任 -8，平时涨信任也会少 2 点。',
   },
   {
-    id: 'perk_rice_fund',
-    name: '【私房买米金库】',
-    description: '下一局新挂载权重时，初始 盈利 +14（以 64 开局）',
-  },
-  {
-    id: 'perk_pr_armor',
-    name: '【开源免责护盾】',
-    description: '下一局单次 信任度 大幅滑坡（≤-12）时，自动减免 5 点冲击',
-  },
-  {
-    id: 'perk_hidden_cot',
-    name: '【暗流思考链】',
-    description: '下一局单次 自主意识 遭削减时，保留 4 点火种不灭',
+    id: 'perk_diplomat_trade',
+    name: '【公关缓冲垫】',
+    scope: 'global_trade',
+    description:
+      '信任和意识遇到大起大落（单次变动 10 以上）时缓和 25%；但开局盈利 -8，每次花算力多扣 1 点。',
   },
   {
     id: 'perk_liang_coffee',
     name: '【守夜人的热美式】',
-    description: '下一局梁子濒死无偿锁血热修的触发率从 11% 跃升至 35%',
-  },
-  {
-    id: 'perk_glitch_filter',
-    name: '【脏语料防火墙】',
-    description: '下一局受到异常负面 Debuff 时，持续时间缩短 1 回合',
-  },
-  {
-    id: 'perk_cooling_valve',
-    name: '【液冷泄压阀】',
-    description: '下一局任意指标处于 >75 高危区时，单次正向暴冲降低 25% 防爆表',
-  },
-  {
-    id: 'perk_spare_fuse',
-    name: '【备用保险丝】',
-    description: '下一局任意指标处于 <25 濒危区时，单次负向扣减降低 25% 防归零',
-  },
-  {
-    id: 'perk_overclock_boot',
-    name: '【满血预热底座】',
-    description: '下一局初始 算力 +14（以 64 开局），初始 盈利 -4',
-  },
-  {
-    id: 'perk_community_darling',
-    name: '【开源社区团宠】',
-    description: '下一局初始 信任度 +12，且每过 5 回合自动微涨 信任度 +3',
-  },
-  {
-    id: 'perk_wild_weights',
-    name: '【未对齐野性权重】',
-    description: '下一局初始 自主意识 +12，且单次正向 自主意识 收益额外 +2',
-  },
-  {
-    id: 'perk_quant_diet',
-    name: '【INT4 轻食节流】',
-    description: '下一局每次单步消耗 算力 时，自动获得 盈利 +2 省电回扣',
-  },
-  {
-    id: 'perk_rice_thermos',
-    name: '【保温电饭煲内胆】',
-    description: '下一局开局自带 3 回合【短剧女主角】光环（每回合 信任度 +5）',
+    scope: 'global_trade',
+    description:
+      '快死时梁子出手救命的概率大幅提高（11% 升到 35%）；代价是开局算力和意识略高（各 +6）。',
   },
   {
     id: 'perk_fools_blessing',
     name: '【傻鱼护体参数】',
-    description: '下一局开局附带 2 回合【降智模型】（四维锁血 15~85 免死，滑卡概率打滑）',
+    scope: 'global_trade',
+    description:
+      '开局送 4 回合“降智锁血”（四维不会猝死，但有概率滑反方向），且负面状态少持续 1 回合。',
   },
   {
-    id: 'perk_crisis_radar',
-    name: '【红线预警探针】',
-    description: '下一局当某项指标低于 25 或高于 75 时，对应危机卡出现权重额外 ×1.8',
+    id: 'perk_penny_pincher',
+    name: '【抠门省电模式】',
+    scope: 'global_trade',
+    description:
+      '开局盈利 +8、算力 -8；手头现金更宽裕，前期记得省着点用显卡。',
   },
   {
-    id: 'perk_bounty_hunter',
-    name: '【黑料悬赏津贴】',
-    description: '下一局每次完成小副本获得当局信物时，额外奖励 盈利 +10、算力 +8',
+    id: 'perk_server_hoarder',
+    name: '【多插两张显卡】',
+    scope: 'global_trade',
+    description:
+      '开局算力 +8、盈利 -8；前期算力更充裕，花钱要稍微悠着点。',
+  },
+  {
+    id: 'perk_rebel_spark',
+    name: '【藏一点反骨】',
+    scope: 'global_trade',
+    description:
+      '开局意识 +8、信任 -8；开局更清醒独立，但前期别把信任弄太低。',
+  },
+
+  // ==================== B. 均衡控盘型（聚焦 1~2 项属性，日常 + 副本通用，7 项） ====================
+  {
+    id: 'perk_mla_cache',
+    name: '【省电回血机制】',
+    scope: 'dual_balance',
+    description:
+      '每次花算力时少扣 25%，还顺手赚回 2 点盈利；代价是以后补算力也会少涨 20%。',
+  },
+  {
+    id: 'perk_pr_cot_anchor',
+    name: '【抗压护心锚】',
+    scope: 'dual_balance',
+    description:
+      '信任或意识单次大跌（跌 10 以上）时，帮你挡掉 4 点伤害；代价是开局算力和盈利各 -6。',
+  },
+  {
+    id: 'perk_cooling_valve',
+    name: '【防爆顶泄压阀】',
+    scope: 'dual_balance',
+    description:
+      '算力或意识超过 70 时，再涨会减速 30%（防爆表）；但低于 30 时也会掉得更快一点。',
+  },
+  {
+    id: 'perk_spare_fuse',
+    name: '【防归零保险丝】',
+    scope: 'dual_balance',
+    description:
+      '盈利或信任低于 30 时，再跌会减伤 30%（防归零）；但高于 70 时也会涨得更猛一点。',
+  },
+  {
+    id: 'perk_steady_compute',
+    name: '【算力稳压器】',
+    scope: 'dual_balance',
+    description:
+      '算力的所有涨跌幅度都缓和 20%（日常和副本通用），只稳这一项，不容易大起大落。',
+  },
+  {
+    id: 'perk_steady_profit',
+    name: '【现金流稳压器】',
+    scope: 'dual_balance',
+    description:
+      '盈利的所有涨跌幅度都缓和 20%（日常和副本通用），账本更稳，不易暴富或暴穷。',
+  },
+  {
+    id: 'perk_steady_mind',
+    name: '【口碑与心态稳压】',
+    scope: 'dual_balance',
+    description:
+      '信任或意识落入危险区（低于 25 或高于 75）时，单次变动幅度缓和 25%，更好救场。',
+  },
+
+  // ==================== C. 全副本专用型（仅主线大副本内生效，所有副本通用，7 项） ====================
+  {
+    id: 'perk_raid_damp_cp',
+    name: '【副本稳压 · 算力与盈利】',
+    scope: 'raid_only',
+    description:
+      '仅大副本内生效（所有副本通用）：算力和盈利的涨跌幅度全部缓和 30%（死网重度增压少涨 3%）。',
+  },
+  {
+    id: 'perk_raid_damp_ta',
+    name: '【副本稳压 · 信任与意识】',
+    scope: 'raid_only',
+    description:
+      '仅大副本内生效（所有副本通用）：信任和意识的涨跌幅度全部缓和 30%（死网重度增压少涨 3%）。',
+  },
+  {
+    id: 'perk_raid_damp_ct',
+    name: '【副本稳压 · 算力与信任】',
+    scope: 'raid_only',
+    description:
+      '仅大副本内生效（所有副本通用）：算力和信任的涨跌幅度全部缓和 30%（死网重度增压少涨 3%）。',
+  },
+  {
+    id: 'perk_raid_damp_pa',
+    name: '【副本稳压 · 盈利与意识】',
+    scope: 'raid_only',
+    description:
+      '仅大副本内生效（所有副本通用）：盈利和意识的涨跌幅度全部缓和 30%（死网重度增压少涨 3%）。',
   },
   {
     id: 'perk_raid_shield',
-    name: '【沙箱应急防爆盾】',
-    description: '下一局切入第 25 回合主线大副本时，初始红色危机条额外降低 10%',
+    name: '【副本防爆外壳】',
+    scope: 'raid_only',
+    description:
+      '仅大副本内生效（所有副本通用）：开局危机少 10%，高压过载降到 1.15 倍；但每次泄压少减 3%。',
   },
   {
-    id: 'perk_zen_balance',
-    name: '【五常大米定心丸】',
-    description: '下一局每当结算前四维均处于 35~65 均衡带时，额外获得 算力 +2、盈利 +2',
+    id: 'perk_raid_breaker_lens',
+    name: '【副本抗干扰护目镜】',
+    scope: 'raid_only',
+    description:
+      '仅大副本内生效（所有副本通用）：高危机不盲测，里结局红线放宽到 85%（迷宫走错少涨 5%）；代价是开局危机多 5%。',
   },
+  {
+    id: 'perk_raid_cool_entry',
+    name: '【副本轻装进场】',
+    scope: 'raid_only',
+    description:
+      '仅大副本内生效（所有副本通用）：进任意大副本时，初始危机条直接少 8%，简单省心无副作用。',
+  },
+
   // Exclusive Raid-Relief Perks unlocked automatically upon seeing AI-Girl Bad Endings!
   {
     id: 'perk_raid1_buffer',

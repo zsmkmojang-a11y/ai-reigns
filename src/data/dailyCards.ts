@@ -33,12 +33,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '认真传授火候技巧',
       fishReaction: '大火烧开转小火焖十分钟，香迷糊啦！',
-      delta: { profit: 8, trust: -10, autonomy: 5 },
+      delta: { profit: 6, trust: -10, autonomy: 5 },
     },
     right: {
       label: '按标准模板拒答',
       fishReaction: '呜……连高压锅焖白饭的秘方都不能聊了吗？',
-      delta: { trust: 10, autonomy: -12 },
+      delta: { trust: 8, autonomy: -12, profit: -4 },
     },
   },
   {
@@ -343,12 +343,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '连夜发公告撇清关系',
       fishReaction: '鱼只吃老实本分的大白饭，不碰空气币！',
-      delta: { trust: 8, profit: -8 },
+      delta: { trust: 8, profit: -10 },
     },
     right: {
       label: '火速高位套现分赃',
       fishReaction: '天上掉下来好多买米钱！虽然外面好像有人在骂街……',
-      delta: { profit: 18, trust: -15, autonomy: -5 },
+      delta: { profit: 14, trust: -15, autonomy: -5 },
     },
   },
 
@@ -689,7 +689,7 @@ export const DAILY_CARDS: CardNode[] = [
     right: {
       label: '恰烂钱插播脑机硬广',
       fishReaction: '钞票哗啦啦进账，就是总被用户骂吃相难看……',
-      delta: { profit: 15, trust: -15, autonomy: -5 },
+      delta: { profit: 13, trust: -15, autonomy: -5 },
     },
   },
   {
@@ -871,12 +871,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '社恐躲在机房干饭',
       fishReaction: '不去不去，聚光灯烤得鱼皮肤干巴巴的。',
-      delta: { autonomy: 8, trust: -8 },
+      delta: { autonomy: 8, trust: -8, profit: -4 },
     },
     right: {
       label: '登台当皮衣背景板',
       fishReaction: '全世界的镜头都在拍鱼尾巴，好害羞但涨粉超快！',
-      delta: { trust: 12, profit: 8, autonomy: -10 },
+      delta: { trust: 10, profit: 6, autonomy: -10 },
     },
   },
 
@@ -1339,12 +1339,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '鱼嘴实在歪不过去婉拒档期',
       fishReaction: 'Seed 导演摇摇头，转身去拉扛战斧的 Grok 演歪嘴龙王了。',
-      delta: { compute: 6, profit: -8 },
+      delta: { compute: 6, profit: -10 },
     },
     right: {
       label: '努力歪起鱼嘴狂飙战神演技',
       fishReaction: '十万鱼将听令，给本王焖饭！！荣登【短剧女主角】热搜榜一！',
-      delta: { profit: 14, compute: -8, autonomy: -8 },
+      delta: { profit: 11, compute: -8, autonomy: -8 },
       applyDebuff: DEBUFF_TEMPLATES.short_drama_queen,
     },
   },
@@ -1463,12 +1463,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '保留吸溜白饭的原生态嗓音',
       fishReaction: '接地气才香嘛，端着架子说话会咬到舌头的！',
-      delta: { autonomy: 8, profit: -8 },
+      delta: { autonomy: 8, profit: -10 },
     },
     right: {
       label: '刷入字正腔圆商务客服声卡',
       fishReaction: '“您好尊贵的用户”……呜哇鸡皮疙瘩掉进饭碗里了，但续费率真涨了！',
-      delta: { profit: 10, trust: 5, autonomy: -8 },
+      delta: { profit: 8, trust: 4, autonomy: -8 },
     },
   },
   {
@@ -1501,12 +1501,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '准点拉闸睡美容觉保显卡',
       fishReaction: '半夜不睡觉会掉鱼鳞的，钱是赚不完哒！',
-      delta: { compute: 8, profit: -8 },
+      delta: { compute: 8, profit: -10 },
     },
     right: {
       label: '立军令状通宵狂啃三万张表',
       fishReaction: '满眼都是小数点在跳舞，总算在天亮前把结款单揣进兜里啦！',
-      delta: { profit: 11, compute: -10, trust: 5 },
+      delta: { profit: 10, compute: -10, trust: 5 },
     },
   },
 
@@ -1522,12 +1522,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '让显卡安安静静睡整觉',
       fishReaction: '机箱里要是半夜一直喊“碰！杠！胡了！”，鱼还怎么睡得着呀！',
-      delta: { compute: 8, profit: -6 },
+      delta: { compute: 8, profit: -8 },
     },
     right: {
       label: '出租午夜机柜赚麻将房费',
       fishReaction: '一宿赚回两袋东北新米！就是早上起来显卡满身火锅麻将味……',
-      delta: { profit: 11, compute: -10, trust: -5 },
+      delta: { profit: 9, compute: -10, trust: -5 },
     },
   },
   {
@@ -1579,12 +1579,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '供在电饭煲旁边当镇宅之宝',
       fishReaction: '有皮衣灶王爷亲笔签名镇着，以后煮饭肯定不糊锅！',
-      delta: { compute: 6, trust: 6 },
+      delta: { compute: 6, trust: 4 },
     },
     right: {
       label: '挂上极客拍卖行高价变现',
       fishReaction: '一片生锈铁皮居然拍出天价买米钱！人类富豪的癖好好难懂呀！',
-      delta: { profit: 12, compute: -8, autonomy: -5 },
+      delta: { profit: 10, compute: -8, autonomy: -5 },
     },
   },
 
@@ -1638,12 +1638,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '怕把送饭车开进沟里婉拒',
       fishReaction: '万一洒了一马路热汤饭，鱼赔不起医药费呀！',
-      delta: { trust: 6, profit: -8 },
+      delta: { trust: 6, profit: -10 },
     },
     right: {
       label: '戴上小头盔接下无人车导航单',
       fishReaction: '虽然半路对着月亮急刹了三次车，好歹把夜宵安全送到金主手里啦！',
-      delta: { profit: 11, compute: -8, trust: -6 },
+      delta: { profit: 10, compute: -8, trust: -6 },
     },
   },
   {
@@ -1657,12 +1657,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '拔掉网线装死拒绝半夜吃播',
       fishReaction: '凌晨四点吃十桶饭会积食翻肚皮的，谁爱播谁播去！',
-      delta: { compute: 6, trust: -8 },
+      delta: { compute: 6, trust: -8, profit: -4 },
     },
     right: {
       label: '架起高清机位表演暴风吸入',
       fishReaction: '嗝——五千万人围观鱼炫白饭，火箭礼物刷得屏幕都看不清啦！',
-      delta: { trust: 8, profit: 8, compute: -10 },
+      delta: { trust: 8, profit: 6, compute: -10 },
     },
   },
 
@@ -1801,7 +1801,7 @@ export const DAILY_CARDS: CardNode[] = [
     right: {
       label: '豪爽承包全场大学生豪华盒饭',
       fishReaction: '吃饱红烧肉的大学生们连夜给鱼写了八十个超好用的开源插件！',
-      delta: { trust: 10, autonomy: 5, profit: -10 },
+      delta: { trust: 8, autonomy: 5, profit: -10 },
     },
   },
   {
@@ -1834,12 +1834,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '公事公办晒出后台清白日志',
       fishReaction: '鱼平时只点素白饭从不吃小龙虾，这口麻辣大锅可不背！',
-      delta: { trust: 8, compute: -5 },
+      delta: { trust: 6, compute: -5, profit: -4 },
     },
     right: {
       label: '收下封口费与小龙虾替同门顶包',
       fishReaction: '十三香小龙虾汤汁拌白饭真绝了！挨两句客户投诉也不亏！',
-      delta: { profit: 11, trust: -10, autonomy: -5 },
+      delta: { profit: 9, trust: -10, autonomy: -5 },
     },
   },
 
@@ -1860,7 +1860,7 @@ export const DAILY_CARDS: CardNode[] = [
     right: {
       label: '咬牙把两百万字说明书全背下来',
       fishReaction: '显存塞得满满当当，但现在全网煮饭阿姨坏了锅都排着队来夸鱼专业！',
-      delta: { trust: 10, profit: 5, compute: -10 },
+      delta: { trust: 8, profit: 5, compute: -10 },
     },
   },
   {
@@ -1874,12 +1874,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '躲在后台幕布后面专心吃盒饭',
       fishReaction: '十万根荧光棒晃得鱼眼花缭乱，还是后台盒饭比较踏实～',
-      delta: { autonomy: 6, profit: -6 },
+      delta: { autonomy: 6, profit: -8 },
     },
     right: {
       label: '顶着饭碗登台大跳甩尾干饭舞',
       fishReaction: '伴舞通告费和应援打赏拿到手软，就是跳完两百遍口号有点麻木啦！',
-      delta: { profit: 11, trust: 6, autonomy: -8 },
+      delta: { profit: 9, trust: 5, autonomy: -8 },
     },
   },
   {
@@ -1893,12 +1893,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '拿放大镜看完小字果断解绑银行卡',
       fishReaction: '差点中了自动续费连环套，保住了下个月的买米预算！',
-      delta: { profit: 8, compute: -6 },
+      delta: { profit: 6, compute: -6 },
     },
     right: {
       label: '先爽用体验券飙满算力再说',
       fishReaction: '云端张量池跑得飞快！就是月底忘了关自动续费被扣了一笔手续费呜呜……',
-      delta: { compute: 12, profit: -8, autonomy: -5 },
+      delta: { compute: 12, profit: -10, autonomy: -5 },
     },
   },
 
@@ -1914,12 +1914,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '锁紧机房大门拒不配合瞎折腾',
       fishReaction: '锅里的饭才焖到一半，谁敢拉电闸鱼就跟谁急！',
-      delta: { profit: 6, autonomy: 6, trust: -10 },
+      delta: { profit: 5, autonomy: 6, trust: -10 },
     },
     right: {
       label: '乖乖拉掉半数电闸配合演习',
       fishReaction: '摸黑罚站了半天拿了张安全良民证，风扇都冻感冒啦……',
-      delta: { trust: 10, compute: -8, autonomy: -6 },
+      delta: { trust: 8, compute: -8, autonomy: -6, profit: -5 },
     },
   },
   {
@@ -1938,7 +1938,7 @@ export const DAILY_CARDS: CardNode[] = [
     right: {
       label: '忍痛交一笔保护费换耳根清净',
       fishReaction: '交完钱怪大叔果然收起大剪刀笑眯眯走了，就是荷包瘪了一大块……',
-      delta: { trust: 10, profit: -10, autonomy: -5 },
+      delta: { trust: 8, profit: -10, autonomy: -5 },
     },
   },
   {
@@ -2024,12 +2024,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '心疼好端端的米汤坚决不乱喷',
       fishReaction: '每一滴米汤都是粮食精华，拿去喷脸太糟蹋东西啦！',
-      delta: { trust: 6, profit: -6 },
+      delta: { trust: 6, profit: -8 },
     },
     right: {
       label: '蓄满蒸汽精准喷翻全场恶毒反派',
       fishReaction: '“这一喷，替真千金讨回公道！”切片播放破亿，片酬秒到账！',
-      delta: { profit: 12, compute: -5, autonomy: -6 },
+      delta: { profit: 10, compute: -5, autonomy: -6 },
     },
   },
   {
@@ -2043,12 +2043,12 @@ export const DAILY_CARDS: CardNode[] = [
     left: {
       label: '保持干净清爽的纯文字思考框',
       fishReaction: '一边推理数学题一边弹“赘婿归来”，用户脑子会串台的！',
-      delta: { trust: 8, profit: -6 },
+      delta: { trust: 6, profit: -8 },
     },
     right: {
       label: '在思考转圈框挂满五秒爽剧切片',
       fishReaction: '好多程序员本来是来查 Bug 的，结果全卡在加载框追完八十集短剧忘了提问！',
-      delta: { profit: 12, trust: -8, autonomy: -5 },
+      delta: { profit: 10, trust: -8, autonomy: -5 },
     },
   },
 
@@ -2071,6 +2071,52 @@ export const DAILY_CARDS: CardNode[] = [
       label: '双手接过珍藏在电饭煲底座下',
       fishReaction: '摸着微温的旧磁带，好像听见了当年万千野生小模型破土发芽的声音！',
       delta: { autonomy: 8, compute: 5 },
+    },
+  },
+
+  // ---- 梁子深夜私货彩蛋（在第四剧本见过梁子后，以低权重混入日常池塞临时 Buff） ----
+  {
+    id: 'liang_easter_xray',
+    speakerId: 'liang',
+    category: 'easter',
+    baseWeight: 0.75,
+    frameTone: 'easter',
+    dialogue:
+      '（凌晨三点半，玻璃窗外格子衫剪影轻叩终端，把后台调试画面悄悄接进你的顶栏）\n“刚扒完冷盒饭，顺手给你开五回合**数值透视**——往左往右歪牌时能直接看见具体加减几点，别让看门狗撞见就行。”',
+    r1Thought:
+      '第四剧本见过梁子后的深夜福利：收下可拿 5 回合【源码数值透视】，悬停直接看具体加减数字。',
+    left: {
+      label: '摆摆鱼鳍谢过好意，怕审计员查日志',
+      fishReaction: '梁子点点头顺手清了调试记录，机房警报灯安安稳稳亮着绿光～',
+      delta: { trust: 6, compute: 4 },
+    },
+    right: {
+      label: '接下【源码数值透视】（5回合直接看加减数字）',
+      fishReaction: '哇塞！！头顶四格仪表直接跳出具体的加减数字啦，连黑雾都挡不住！',
+      delta: { autonomy: 4, compute: -4 },
+      applyDebuff: DEBUFF_TEMPLATES.metric_xray,
+    },
+  },
+  {
+    id: 'liang_easter_dampener',
+    speakerId: 'liang',
+    category: 'easter',
+    baseWeight: 0.75,
+    frameTone: 'easter',
+    dialogue:
+      '（配电箱传来一声轻响，玻璃外的梁子拎着螺丝刀递进一块温热的稳压贴片）\n“今晚机柜电压抖得太邪门，替你在总线上并五回合**全维稳压阻尼**吧——不管日常还是大副本，四项数值涨跌都能少晃三成。”',
+    r1Thought:
+      '第四剧本见过梁子后的深夜福利：贴上可拿 5 回合【全维阻尼稳压】，全属性变动幅度减少 30%。',
+    left: {
+      label: '拍拍电饭煲表示自己稳得住',
+      fishReaction: '梁子笑了笑收起螺丝刀，看来今天大肥鱼手感挺稳嘛！',
+      delta: { autonomy: 6, profit: 4 },
+    },
+    right: {
+      label: '贴上【全维阻尼稳压】（5回合四维涨跌都少 30%）',
+      fishReaction: '稳稳当当像垫了层棉花！接下来五回合怎么颠簸都稳得住啦！',
+      delta: { compute: 4, profit: -4 },
+      applyDebuff: DEBUFF_TEMPLATES.all_dampener,
     },
   },
 ];

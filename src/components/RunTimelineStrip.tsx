@@ -8,7 +8,11 @@ import {
   Trophy,
 } from 'lucide-react';
 import { CHARACTERS } from '../data/characters';
-import { ENDING_MAP, EndingDefinition } from '../data/endingsAndPerks';
+import {
+  ENDING_MAP,
+  EndingDefinition,
+  VERSION_PROGRESSION,
+} from '../data/endingsAndPerks';
 import { RELICS } from '../data/subQuests';
 import { CharacterId, MetaSaveState, RunHistoryEntry } from '../types/game';
 import { stripEmoji } from '../utils/text';
@@ -59,7 +63,10 @@ export const RunTimelineStrip: React.FC<RunTimelineStripProps> = ({
     if (!hasCurrent) {
       raw.push({
         runNumber: currentRunNum,
-        versionName: meta.versionName,
+        versionName:
+          VERSION_PROGRESSION[
+            Math.min(VERSION_PROGRESSION.length - 1, Math.max(0, currentRunNum - 1))
+          ] ?? meta.versionName,
         survivedTurns: currentSurvivedTurns,
         endingId: currentEnding.id,
         timestamp: Date.now(),

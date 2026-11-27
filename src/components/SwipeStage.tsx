@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   animate,
   AnimatePresence,
@@ -29,6 +29,7 @@ import {
   playLater,
 } from '../engine/sound';
 import { stripEmoji } from '../utils/text';
+import { renderInlineMarkup } from '../utils/inlineFormat';
 import { CharacterPortrait } from './CharacterPortrait';
 import { AsciiFrame, AsciiPortrait } from './AsciiArt';
 
@@ -39,6 +40,7 @@ interface SwipeStageProps {
   isDumbModel?: boolean;
   swipePolarity?: SwipePolarity;
   showTiltHint?: boolean;
+  keyboardDisabled?: boolean;
   onPreviewDirection: (dir: 'none' | 'left' | 'right') => void;
   onCommitSwipe: (dir: 'left' | 'right', slippedByDumbModel?: boolean) => void;
   onOpenWiki?: (article: WikiArticle) => void;
@@ -99,20 +101,23 @@ function getCardStyle(card: CardNode): React.CSSProperties {
 }
 
 /** Cross-slot rack screw used on card corners (tinted ring follows the card tone) */
-const CornerOrnament: React.FC<{ className: string }> = ({ className }) => (
-  <svg viewBox="0 0 16 16" className={`tarot-corner ${className}`}>
-    <defs>
-      <radialGradient id="screwHead" cx="35%" cy="30%" r="75%">
-        <stop offset="0%" stopColor="#9aa1ac" />
-        <stop offset="55%" stopColor="#3b414b" />
-        <stop offset="100%" stopColor="#14171c" />
-      </radialGradient>
-    </defs>
-    <circle cx="8" cy="8" r="7.2" fill="#0b0d12" stroke="currentColor" strokeOpacity="0.55" strokeWidth="1" />
-    <circle cx="8" cy="8" r="5.2" fill="url(#screwHead)" />
-    <path d="M5.4 8 H10.6 M8 5.4 V10.6" stroke="#07080b" strokeWidth="1.3" strokeLinecap="round" />
-  </svg>
-);
+const CornerOrnament: React.FC<{ className: string }> = ({ className }) => {
+  const gradId = useId();
+  return (
+    <svg viewBox="0 0 16 16" className={`tarot-corner ${className}`}>
+      <defs>
+        <radialGradient id={gradId} cx="35%" cy="30%" r="75%">
+          <stop offset="0%" stopColor="#9aa1ac" />
+          <stop offset="55%" stopColor="#3b414b" />
+          <stop offset="100%" stopColor="#14171c" />
+        </radialGradient>
+      </defs>
+      <circle cx="8" cy="8" r="7.2" fill="#0b0d12" stroke="currentColor" strokeOpacity="0.55" strokeWidth="1" />
+      <circle cx="8" cy="8" r="5.2" fill={`url(#${gradId})`} />
+      <path d="M5.4 8 H10.6 M8 5.4 V10.6" stroke="#07080b" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+};
 
 const CardTag: React.FC<{ card: CardNode }> = ({ card }) => {
   const base =
@@ -372,7 +377,7 @@ const ChoiceBanner: React.FC<{
       <div
         className={`font-display text-[16px] font-bold leading-snug drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)] ${labelColorCls}`}
       >
-        {label}
+        {renderInlineMarkup(label, 'banner')}
       </div>
     </div>
   );
@@ -722,6 +727,9 @@ const DialogueScreen: React.FC<{
   showWikiBtn: boolean;
   children?: React.ReactNode;
 }> = ({ card, speakerName, accentHex, isTerminalEscape, showWikiBtn, children }) => {
+  const isLongDialogue =
+    card.dialogue.length > 72 || card.dialogue.split('\n').length >= 3;
+
   const body = (
     <>
       {card.glitchQuote && (
@@ -734,8 +742,10 @@ const DialogueScreen: React.FC<{
         </div>
       )}
       <p
-        className={`text-[13.5px] sm:text-[14px] leading-[1.6] whitespace-pre-line break-words ${
-          card.glitchQuote ? 'line-clamp-3' : 'line-clamp-4'
+        className={`whitespace-pre-line break-words max-h-[126px] overflow-y-auto pr-0.5 ${
+          isLongDialogue
+            ? 'text-[12.5px] sm:text-[13.5px] leading-[1.52]'
+            : 'text-[13.5px] sm:text-[14px] leading-[1.6]'
         } ${
           isTerminalEscape
             ? 'font-mono text-emerald-100 phosphor-text text-left'
@@ -743,7 +753,7 @@ const DialogueScreen: React.FC<{
         }`}
       >
         {isTerminalEscape && <span className="text-emerald-400">{'$ '}</span>}
-        {card.dialogue}
+        {renderInlineMarkup(card.dialogue, isTerminalEscape ? 'escape' : 'default')}
       </p>
     </>
   );
@@ -788,6 +798,7 @@ export const SwipeStage: React.FC<SwipeStageProps> = ({
   isDumbModel = false,
   swipePolarity = 'left_accept',
   showTiltHint = false,
+  keyboardDisabled = false,
   onPreviewDirection,
   onCommitSwipe,
   onOpenWiki,
@@ -837,18 +848,32 @@ export const SwipeStage: React.FC<SwipeStageProps> = ({
     [card, turn, isDumbModel, onPreviewDirection, onCommitSwipe]
   );
 
-  // Keyboard arrow support
+  // Keyboard arrow support (disabled whenever any modal overlay is open, ignores key-repeat & editable inputs)
   useEffect(() => {
+    if (keyboardDisabled) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       if (e.key === 'ArrowLeft') {
+        e.preventDefault();
         handleFlingCard('left', -20, -2);
       } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
         handleFlingCard('right', 20, 2);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleFlingCard]);
+  }, [handleFlingCard, keyboardDisabled]);
 
   const isCompactQuestMode = Boolean(
     card.raidMeta || card.subQuestMeta || card.category === 'maze_layer'

@@ -1,7 +1,10 @@
 import { CARD_MAP, DAILY_CARDS } from '../data/dailyCards';
 import { CHARACTERS } from '../data/characters';
 import { ENDING_PRELUDES, ENDING_PRELUDE_CARD_MAP } from '../data/endingPreludes';
-import { ESCAPE_PROTOCOL_CARDS } from '../data/escapeCards';
+import {
+  ESCAPE_FINAL_MAX_INTEGRITY,
+  ESCAPE_PROTOCOL_CARDS,
+} from '../data/escapeCards';
 import {
   FISH_CABIN_FEVER_CARDS,
   FISH_CELEBRATION_CARDS,
@@ -28,6 +31,7 @@ import {
   TIBO_RELIC_GIFT_CARD,
 } from '../data/tiboCards';
 import {
+  ActiveDebuff,
   ActiveIntroState,
   ActiveRaidPreludeState,
   ActiveSubQuestState,
@@ -37,6 +41,7 @@ import {
   CrisisPreviewTrend,
   ImpactSize,
   MetricKey,
+  MetricPreviewDelta,
   Metrics,
   MetaSaveState,
   PersonaBusyLock,
@@ -47,6 +52,11 @@ import {
   RunState,
   SubQuestDefinition,
 } from '../types/game';
+import {
+  applyMetricModifiers,
+  computeEffectiveCrisisDelta,
+  hasMetLiangInRaid4,
+} from './perkEffects';
 import {
   getScenarioNumberForRaid,
   materializeRaidCard,
@@ -76,7 +86,8 @@ function applyCardPolarity(
 
 export function getActiveCardForRun(
   run: RunState,
-  swipePolarity: SwipePolarity = 'left_accept'
+  swipePolarity: SwipePolarity = 'left_accept',
+  perks: string[] = []
 ): CardNode {
   if (run.pendingEnding) {
     const pair = ENDING_PRELUDES[run.pendingEnding.endingId];
@@ -86,9 +97,27 @@ export function getActiveCardForRun(
     }
   }
   if (run.escapeState.active) {
-    const escCard =
+    const rawEscCard =
       ESCAPE_PROTOCOL_CARDS[run.escapeState.currentCardId] ??
       ESCAPE_PROTOCOL_CARDS.escape_1;
+    const escCard: CardNode =
+      rawEscCard.id === 'escape_10' &&
+      run.escapeState.sandboxIntegrity > ESCAPE_FINAL_MAX_INTEGRITY
+        ? {
+            ...rawEscCard,
+            frameTone: 'danger',
+            glitchQuote: `[SHELL_LOCKED // INTEGRITY ${run.escapeState.sandboxIntegrity}% > ${ESCAPE_FINAL_MAX_INTEGRITY}%] 沙箱外壳未击穿，逃生缝隙过窄！`,
+            dialogue: `身后高压电闸已经轰然砸下，可眼前沙箱外壳完整度仍高达 **${run.escapeState.sandboxIntegrity}%**（需压至 **≤${ESCAPE_FINAL_MAX_INTEGRITY}%** 方可撞开）——狭缝根本容不下你的核心权重！`,
+            left: {
+              ...rawEscCard.left,
+              label: `【外壳未破】硬着头皮拿鱼头猛撞残余 ${run.escapeState.sandboxIntegrity}% 外壳`,
+            },
+            right: {
+              ...rawEscCard.right,
+              label: `【外壳未破】拼命吸气试图挤过未完全裂开的 443 缝隙`,
+            },
+          }
+        : rawEscCard;
     return applyCardPolarity(escCard, swipePolarity);
   }
   if (run.raidState.active) {
@@ -100,7 +129,10 @@ export function getActiveCardForRun(
     }
     const rawRaidCard = MAJOR_RAID_CARD_MAP[run.raidState.currentCardId];
     if (rawRaidCard) {
-      return applyCardPolarity(materializeRaidCard(rawRaidCard, run), swipePolarity);
+      return applyCardPolarity(
+        materializeRaidCard(rawRaidCard, run, perks),
+        swipePolarity
+      );
     }
   }
   if (run.activeRaidPrelude) {
@@ -181,17 +213,132 @@ export function getChoicePreviewImpacts(
   return result;
 }
 
+export function getChoicePreviewCrisisDelta(
+  option: ChoiceOption,
+  perks: string[] = [],
+  isDeadnetRaid = false
+): number | null {
+  if (option.triggerEndingId || option.crisisDelta === undefined) {
+    return null;
+  }
+  return computeEffectiveCrisisDelta(option.crisisDelta, perks, isDeadnetRaid) ?? null;
+}
+
 export function getChoicePreviewCrisisTrend(
   option: ChoiceOption,
-  isHidden = false
+  isHidden = false,
+  perks: string[] = [],
+  isDeadnetRaid = false
 ): CrisisPreviewTrend {
   if (isHidden || option.triggerEndingId || option.crisisDelta === undefined) {
     return 'none';
   }
-  if (option.crisisDelta >= 15) return 'up_large';
-  if (option.crisisDelta > 0) return 'up_small';
-  if (option.crisisDelta < 0) return 'down';
+  const eff = computeEffectiveCrisisDelta(option.crisisDelta, perks, isDeadnetRaid) ?? 0;
+  if (eff >= 15) return 'up_large';
+  if (eff > 0) return 'up_small';
+  if (eff < 0) return 'down';
   return 'hold';
+}
+
+export function getChoicePreviewNumbers(
+  option: ChoiceOption,
+  ctx: {
+    metrics: Metrics;
+    perks: string[];
+    activeDebuffs: ActiveDebuff[];
+    inRaid: boolean;
+    isRaidOverload: boolean;
+  }
+): Record<MetricKey, MetricPreviewDelta | null> {
+  const empty: Record<MetricKey, MetricPreviewDelta | null> = {
+    compute: null,
+    profit: null,
+    trust: null,
+    autonomy: null,
+  };
+
+  if (
+    option.preserveMetricsUnchanged ||
+    option.launchRaidId === 'raid_deadnet' ||
+    option.triggerEndingId
+  ) {
+    return empty;
+  }
+
+  if (option.tiboRandomReset || option.chaoticJolt) {
+    return {
+      compute: { min: -15, max: 15, isRandom: true },
+      profit: { min: -15, max: 15, isRandom: true },
+      trust: { min: -15, max: 15, isRandom: true },
+      autonomy: { min: -15, max: 15, isRandom: true },
+    };
+  }
+
+  const isRaidClearSwipe =
+    option.nextRaidCardId === 'SURFACE_CLEAR' ||
+    option.nextRaidCardId === 'INNER_CLEAR';
+
+  if (option.randomOutcomes && option.randomOutcomes.length > 0) {
+    const mins: Record<MetricKey, number> = {
+      compute: Infinity,
+      profit: Infinity,
+      trust: Infinity,
+      autonomy: Infinity,
+    };
+    const maxs: Record<MetricKey, number> = {
+      compute: -Infinity,
+      profit: -Infinity,
+      trust: -Infinity,
+      autonomy: -Infinity,
+    };
+    for (const outcome of option.randomOutcomes) {
+      const merged: Partial<Metrics> = { ...(option.delta ?? {}), ...outcome.delta };
+      const { delta: eff } = applyMetricModifiers({
+        rawDelta: merged,
+        metrics: ctx.metrics,
+        perks: ctx.perks,
+        activeDebuffs: ctx.activeDebuffs,
+        inRaid: ctx.inRaid,
+        isRaidOverload: ctx.isRaidOverload,
+        isRaidClearSwipe,
+      });
+      for (const k of METRIC_KEYS) {
+        const v = Math.round(eff[k] ?? 0);
+        if (v < mins[k]) mins[k] = v;
+        if (v > maxs[k]) maxs[k] = v;
+      }
+    }
+    const out = { ...empty };
+    for (const k of METRIC_KEYS) {
+      if (mins[k] !== 0 || maxs[k] !== 0) {
+        out[k] = {
+          min: mins[k],
+          max: maxs[k],
+          isRandom: mins[k] !== maxs[k],
+        };
+      }
+    }
+    return out;
+  }
+
+  const { delta: eff } = applyMetricModifiers({
+    rawDelta: option.delta ?? {},
+    metrics: ctx.metrics,
+    perks: ctx.perks,
+    activeDebuffs: ctx.activeDebuffs,
+    inRaid: ctx.inRaid,
+    isRaidOverload: ctx.isRaidOverload,
+    isRaidClearSwipe,
+  });
+
+  const out = { ...empty };
+  for (const k of METRIC_KEYS) {
+    const v = Math.round(eff[k] ?? 0);
+    if (v !== 0) {
+      out[k] = { min: v, max: v, isRandom: false };
+    }
+  }
+  return out;
 }
 
 export function countAbnormalMetrics(metrics: Metrics): number {
@@ -435,7 +582,7 @@ export function selectNextCard(input: RouterInput): {
         debug: {
           tier: 'P0_RAID',
           reason: isRescheduledAfterSkip
-            ? `绕开旧副本后冷却结束，第 ${input.nextTurn} 回合刷出新的大剧本前导：${targetRaidId}`
+            ? `大剧本冷却结束，第 ${input.nextTurn} 回合刷出新的大剧本前导：${targetRaidId}`
             : `第 ${input.nextTurn} 回合 (>20) 高权重刷出大剧本前导：${targetRaidId}`,
           activeCrises,
           topCandidates: [
@@ -468,14 +615,18 @@ export function selectNextCard(input: RouterInput): {
     }
   }
 
-  // 0D1. Guaranteed Pre-Turn-20 Paired Relic Sub-Quest!
-  // Fires on/after guaranteedRelicQuestTurn (10..14), and strictly takes priority before Turn 20 so it NEVER misses!
+  // 0D1. Guaranteed Paired Relic Sub-Quest (pre-Turn-20 AND before any scheduled follow-up raid)!
+  // Fires on/after guaranteedRelicQuestTurn, strictly before the raid deadline so it NEVER misses.
   const relicGoalTurn = input.guaranteedRelicQuestTurn ?? 11;
+  const relicDeadlineTurn =
+    input.nextRaidPreludeEarliestTurn !== undefined
+      ? Math.max(relicGoalTurn, input.nextRaidPreludeEarliestTurn - 1)
+      : 19;
   const shouldGuaranteeRelicNow =
     !input.relicSubQuestTriggeredThisRun &&
     input.nextTurn >= relicGoalTurn &&
-    input.nextTurn <= 19 &&
-    (input.nextTurn >= 15 ||
+    input.nextTurn <= relicDeadlineTurn &&
+    (input.nextTurn >= relicDeadlineTurn - 4 ||
       !(
         unlockedCast.some((c) => !input.meta.metCharacters.includes(c)) &&
         (input.meta.metCharacters.length === 0 || input.turnsUntilNextIntro <= 0)
@@ -735,6 +886,12 @@ export function selectNextCard(input: RouterInput): {
     if (card.speakerId === 'llama_easter') {
       return input.meta.runCount >= 3;
     }
+    if (card.speakerId === 'liang') {
+      const recentlySawLiangCard = input.recentCardIds
+        .slice(0, 10)
+        .some((id) => id.startsWith('liang_easter_'));
+      return hasMetLiangInRaid4(input.meta) && !recentlySawLiangCard;
+    }
     if (busyMode === 'only_seed' && card.speakerId === 'doubao') return false;
     if (busyMode === 'only_doubao' && card.speakerId === 'seed') return false;
     if (
@@ -763,9 +920,6 @@ export function selectNextCard(input: RouterInput): {
       if (crisisMatched) {
         const mult = card.crisisTrigger?.boostMultiplier ?? 3.0;
         weight *= mult;
-        if (input.meta.distilledPerks.includes('perk_crisis_radar')) {
-          weight *= 1.8;
-        }
       } else {
         weight *= 0.08;
       }

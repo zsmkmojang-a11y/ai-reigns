@@ -640,6 +640,21 @@ export function playEndingReveal(kind: 'true' | 'doom'): void {
   });
 }
 
+/** Warm major triad fanfare for Major Raid Surface Clear victories. */
+export function playRaidClearChime(): void {
+  if (!cooled('raid_clear', 800)) return;
+  play((c, out, t) => {
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 -> E5 -> G5 -> C6
+    notes.forEach((f, i) => {
+      const s = t + i * 0.085;
+      const dur = i === notes.length - 1 ? 1.4 : 0.7;
+      tone(c, out, { type: 'triangle', freq: f, start: s, dur, gain: 0.055, attack: 0.01 });
+      tone(c, out, { type: 'sine', freq: f * 2, start: s, dur: dur * 0.65, gain: 0.014, attack: 0.01 });
+    });
+    noise(c, out, { start: t + 0.22, dur: 0.45, gain: 0.014, filterType: 'highpass', freq: 6500, Q: 0.5 });
+  });
+}
+
 /* Convenience for staggered cues */
 export function playLater(ms: number, fn: () => void): void {
   delayed(ms, fn);

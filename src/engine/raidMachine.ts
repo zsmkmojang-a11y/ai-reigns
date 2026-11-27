@@ -9,6 +9,7 @@ import {
   RunState,
   ScenarioNumber,
 } from '../types/game';
+import { RAID_LENS_INNER_MAX_CRISIS } from './perkEffects';
 
 export const FIRST_THREE_RAIDS: RaidId[] = [
   'raid_ddos',
@@ -263,12 +264,17 @@ export function createInitialRaidState(
 
   const baseCrisis = hasBufferPerk ? 20 : 35;
   const shieldDiscount = distilledPerks.includes('perk_raid_shield') ? 10 : 0;
+  const coolEntryDiscount = distilledPerks.includes('perk_raid_cool_entry') ? 8 : 0;
+  const lensPenalty = distilledPerks.includes('perk_raid_breaker_lens') ? 5 : 0;
 
   return {
     active: true,
     raidId,
     crisisName: def.crisisName,
-    crisisMeter: Math.max(15, baseCrisis - shieldDiscount),
+    crisisMeter: Math.max(
+      10,
+      baseCrisis - shieldDiscount - coolEntryDiscount + lensPenalty
+    ),
     currentCardId: def.entryCardId,
     allyBranch: 'A',
     flags: {},
@@ -277,7 +283,8 @@ export function createInitialRaidState(
 
 function adaptRaidOption(
   opt: ChoiceOption,
-  run: Pick<RunState, 'permanentRelics' | 'raidState'>
+  run: Pick<RunState, 'permanentRelics' | 'raidState'>,
+  perks: string[] = []
 ): ChoiceOption {
   // 1. Check requiresRaidFlag for Inner Ending option on Final Card
   if (opt.requiresRaidFlag && !run.raidState.flags[opt.requiresRaidFlag]) {
@@ -286,13 +293,17 @@ function adaptRaidOption(
     }
   }
 
-  // 1B. Check maxCrisisMeter hard gate (e.g. Inner Ending requires crisis < 80%)
+  // 1B. Check maxCrisisMeter hard gate (Inner Ending requires crisis < 80%, or <= 85% with perk_raid_breaker_lens)
   if (
     opt.maxCrisisMeter !== undefined &&
-    run.raidState.crisisMeter > opt.maxCrisisMeter &&
     opt.crisisLockedFallbackOption
   ) {
-    return { ...opt.crisisLockedFallbackOption };
+    const effectiveMax = perks.includes('perk_raid_breaker_lens')
+      ? Math.max(opt.maxCrisisMeter, RAID_LENS_INNER_MAX_CRISIS)
+      : opt.maxCrisisMeter;
+    if (run.raidState.crisisMeter > effectiveMax) {
+      return { ...opt.crisisLockedFallbackOption };
+    }
   }
 
   // 2. Check single-run Relic zero-loss -20% crisis bypass!
@@ -302,12 +313,18 @@ function adaptRaidOption(
     );
     if (matchingRelicId) {
       const relic = RELICS[matchingRelicId];
+      const jumpsToGate = opt.relicBypassNextRaidCardId === 'dn_5_gate';
       return {
         ...opt,
-        label: `亮出${relic.name}免损破局（危机 -20%）`,
-        fishReaction: `${relic.name}金光一闪！一滴汗没流就把危机条狠狠压下去 20%！`,
+        label: jumpsToGate
+          ? `亮出${relic.name}免损净化直达裂缝（危机 -20%）`
+          : `亮出${relic.name}免损破局（危机 -20%）`,
+        fishReaction: jumpsToGate
+          ? `${relic.name}金光一闪！毒雾瞬间散尽，直接辟出捷径直抵 0x00_SANDBOX 裂缝门禁！`
+          : `${relic.name}金光一闪！一滴汗没流就把危机条狠狠压下去 20%！`,
         delta: {},
         crisisDelta: -20,
+        nextRaidCardId: opt.relicBypassNextRaidCardId ?? opt.nextRaidCardId,
       };
     }
   }
@@ -320,12 +337,13 @@ function adaptRaidOption(
  */
 export function materializeRaidCard(
   rawCard: CardNode,
-  run: Pick<RunState, 'permanentRelics' | 'raidState'>
+  run: Pick<RunState, 'permanentRelics' | 'raidState'>,
+  perks: string[] = []
 ): CardNode {
   if (rawCard.category !== 'major_raid') return rawCard;
   return {
     ...rawCard,
-    left: adaptRaidOption(rawCard.left, run),
-    right: adaptRaidOption(rawCard.right, run),
+    left: adaptRaidOption(rawCard.left, run, perks),
+    right: adaptRaidOption(rawCard.right, run, perks),
   };
 }

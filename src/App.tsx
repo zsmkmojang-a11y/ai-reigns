@@ -41,10 +41,10 @@ import {
   TIBO_PRE_RAID_RESET_CARD,
   TIBO_RELIC_GIFT_CARD,
 } from './data/tiboCards';
+import { getRaidOverloadMultiplier } from './engine/perkEffects';
 import {
   createInitialRaidState,
   RAID_MELTDOWN_THRESHOLD,
-  RAID_OVERLOAD_METRIC_MULTIPLIER,
   RAID_OVERLOAD_THRESHOLD,
 } from './engine/raidMachine';
 import { resolveCardSwipe } from './engine/resolver';
@@ -56,14 +56,17 @@ import {
   playGlitchBuzz,
   playLater,
   playPositiveChime,
+  playRaidClearChime,
   playScreenShatter,
   subscribeSoundMuted,
   toggleSoundMuted,
 } from './engine/sound';
 import {
   getActiveCardForRun,
+  getChoicePreviewCrisisDelta,
   getChoicePreviewCrisisTrend,
   getChoicePreviewImpacts,
+  getChoicePreviewNumbers,
   SwipePolarity,
 } from './engine/router';
 import {
@@ -81,6 +84,7 @@ import {
   ImpactSize,
   LiangTerminalEvent,
   MetricKey,
+  MetricPreviewDelta,
   MetaSaveState,
   RaidClearDefinition,
   RunState,
@@ -111,6 +115,13 @@ const EMPTY_IMPACTS: Record<MetricKey, ImpactSize> = {
   profit: 'none',
   trust: 'none',
   autonomy: 'none',
+};
+
+const EMPTY_PREVIEW_NUMBERS: Record<MetricKey, MetricPreviewDelta | null> = {
+  compute: null,
+  profit: null,
+  trust: null,
+  autonomy: null,
 };
 
 export const App: React.FC = () => {
@@ -218,18 +229,22 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const currentCard = getActiveCardForRun(run, swipePolarity);
+  const currentCard = getActiveCardForRun(run, swipePolarity, meta.distilledPerks);
   const isBlinded = run.activeDebuffs.some((d) => d.id === 'blind_fog');
   const isScrambled = run.activeDebuffs.some((d) => d.id === 'scrambled_numbers');
   const isDumbModel = run.activeDebuffs.some((d) => d.id === 'dumb_model');
+  const hasMetricXray = run.activeDebuffs.some((d) => d.id === 'metric_xray');
   const isStandardRaid =
     run.raidState.active && run.raidState.raidId !== 'raid_deadnet';
+  const hasRaidLens = meta.distilledPerks.includes('perk_raid_breaker_lens');
   const isCrisisJammed =
-    isStandardRaid && run.raidState.crisisMeter >= RAID_MELTDOWN_THRESHOLD;
-  const raidOverloadScale =
-    isStandardRaid && run.raidState.crisisMeter >= RAID_OVERLOAD_THRESHOLD
-      ? RAID_OVERLOAD_METRIC_MULTIPLIER
-      : 1;
+    isStandardRaid &&
+    run.raidState.crisisMeter >= RAID_MELTDOWN_THRESHOLD &&
+    !hasRaidLens;
+  const raidOverloadMultiplier = getRaidOverloadMultiplier(meta.distilledPerks);
+  const isRaidOverload =
+    isStandardRaid && run.raidState.crisisMeter >= RAID_OVERLOAD_THRESHOLD;
+  const raidOverloadScale = isRaidOverload ? raidOverloadMultiplier : 1;
 
   const collectedLogCount =
     Number(meta.logsCollected.log1) +
@@ -240,7 +255,7 @@ export const App: React.FC = () => {
     if (run.escapeState.active || currentCard.category === 'ending_prelude') {
       return EMPTY_IMPACTS;
     }
-    const hideMetricPreview = isBlinded || isCrisisJammed;
+    const hideMetricPreview = !hasMetricXray && (isBlinded || isCrisisJammed);
     if (previewDir === 'left') {
       return getChoicePreviewImpacts(
         currentCard.left,
@@ -259,10 +274,43 @@ export const App: React.FC = () => {
   }, [
     previewDir,
     currentCard,
+    hasMetricXray,
     isBlinded,
     isCrisisJammed,
     raidOverloadScale,
     run.escapeState.active,
+  ]);
+
+  const previewNumbers = useMemo(() => {
+    if (
+      !hasMetricXray ||
+      previewDir === 'none' ||
+      run.escapeState.active ||
+      currentCard.category === 'ending_prelude' ||
+      (run.raidState.active && run.raidState.raidId === 'raid_deadnet')
+    ) {
+      return EMPTY_PREVIEW_NUMBERS;
+    }
+    const opt = previewDir === 'left' ? currentCard.left : currentCard.right;
+    return getChoicePreviewNumbers(opt, {
+      metrics: run.metrics,
+      perks: meta.distilledPerks,
+      activeDebuffs: run.activeDebuffs,
+      inRaid: isStandardRaid,
+      isRaidOverload,
+    });
+  }, [
+    hasMetricXray,
+    previewDir,
+    currentCard,
+    run.escapeState.active,
+    run.raidState.active,
+    run.raidState.raidId,
+    run.metrics,
+    run.activeDebuffs,
+    meta.distilledPerks,
+    isStandardRaid,
+    isRaidOverload,
   ]);
 
   const previewCrisisTrend = useMemo(() => {
@@ -274,14 +322,59 @@ export const App: React.FC = () => {
     ) {
       return 'none' as const;
     }
+    const isDeadnet = run.raidState.raidId === 'raid_deadnet';
     if (previewDir === 'left') {
-      return getChoicePreviewCrisisTrend(currentCard.left);
+      return getChoicePreviewCrisisTrend(
+        currentCard.left,
+        false,
+        meta.distilledPerks,
+        isDeadnet
+      );
     }
     if (previewDir === 'right') {
-      return getChoicePreviewCrisisTrend(currentCard.right);
+      return getChoicePreviewCrisisTrend(
+        currentCard.right,
+        false,
+        meta.distilledPerks,
+        isDeadnet
+      );
     }
     return 'none' as const;
-  }, [previewDir, currentCard, run.raidState.active, run.escapeState.active]);
+  }, [
+    previewDir,
+    currentCard,
+    run.raidState.active,
+    run.raidState.raidId,
+    run.escapeState.active,
+    meta.distilledPerks,
+  ]);
+
+  const previewCrisisDelta = useMemo(() => {
+    if (
+      !hasMetricXray ||
+      previewDir === 'none' ||
+      !run.raidState.active ||
+      run.escapeState.active ||
+      currentCard.category === 'maze_layer' ||
+      currentCard.category === 'ending_prelude'
+    ) {
+      return null;
+    }
+    const opt = previewDir === 'left' ? currentCard.left : currentCard.right;
+    return getChoicePreviewCrisisDelta(
+      opt,
+      meta.distilledPerks,
+      run.raidState.raidId === 'raid_deadnet'
+    );
+  }, [
+    hasMetricXray,
+    previewDir,
+    currentCard,
+    run.raidState.active,
+    run.raidState.raidId,
+    run.escapeState.active,
+    meta.distilledPerks,
+  ]);
 
   const handleConfirmTerminal = () => {
     if (!terminalEvent) return;
@@ -389,10 +482,9 @@ export const App: React.FC = () => {
     }
 
     if (result.raidClearEvent) {
+      const isInnerClear = result.raidClearEvent.variant === 'inner';
       playLater(220, () =>
-        playEndingReveal(
-          result.raidClearEvent?.variant === 'inner' ? 'true' : 'doom'
-        )
+        isInnerClear ? playEndingReveal('true') : playRaidClearChime()
       );
       setActiveRaidClear(result.raidClearEvent);
     }
@@ -595,7 +687,7 @@ export const App: React.FC = () => {
   };
 
   const handleGrantSpecialStatus = (
-    statusId: 'short_drama_queen' | 'dumb_model'
+    statusId: 'short_drama_queen' | 'dumb_model' | 'metric_xray' | 'all_dampener'
   ) => {
     const tpl = DEBUFF_TEMPLATES[statusId];
     if (!tpl) return;
@@ -608,6 +700,25 @@ export const App: React.FC = () => {
         { ...tpl },
       ],
       lastOutcomeToast: `调试挂载状态：【${tpl.name}】(${tpl.turnsLeft}回合)`,
+    }));
+  };
+
+  const handleEquipSingleRunPerk = (perkId: string) => {
+    const perk = DISTILL_PERK_MAP[perkId];
+    if (!perk || perk.exclusiveFromGirlEnding) return;
+    playPositiveChime();
+    const permanentExclusive = meta.distilledPerks.filter(
+      (id) => DISTILL_PERK_MAP[id]?.exclusiveFromGirlEnding
+    );
+    const updatedMeta: MetaSaveState = {
+      ...meta,
+      distilledPerks: [...permanentExclusive, perkId],
+    };
+    setMeta(updatedMeta);
+    saveMetaState(updatedMeta);
+    setRun((prev) => ({
+      ...prev,
+      lastOutcomeToast: `调试切换单局继承词条：${perk.name}`,
     }));
   };
 
@@ -750,6 +861,17 @@ export const App: React.FC = () => {
         (id) => DISTILL_PERK_MAP[id] && !DISTILL_PERK_MAP[id].exclusiveFromGirlEnding
       ));
   const showStatusInspectHint = !hasInspectedStatusOnce && hasAnyStatusCapsule;
+  const isAnyModalOpen = Boolean(
+    activeEnding ||
+      terminalEvent ||
+      activeRaidClear ||
+      rosterOpen ||
+      codexOpen ||
+      logOpen ||
+      statusOpen ||
+      activeWiki ||
+      debugOpen
+  );
 
   return (
     <PortraitStyleContext.Provider
@@ -935,13 +1057,18 @@ export const App: React.FC = () => {
       <MetricsHeader
         metrics={run.metrics}
         previewImpacts={previewImpacts}
+        previewNumbers={previewNumbers}
         previewCrisisTrend={previewCrisisTrend}
+        previewCrisisDelta={previewCrisisDelta}
         raidState={run.raidState}
         escapeState={run.escapeState}
         isBlinded={isBlinded}
         isCrisisJammed={isCrisisJammed}
         isScrambled={isScrambled}
         isPreviewing={previewDir !== 'none'}
+        hasMetricXray={hasMetricXray}
+        hasRaidLens={hasRaidLens}
+        raidOverloadMultiplier={raidOverloadMultiplier}
       />
 
       {/* Protagonist Status + Active Debuffs & Single-Run Relics (Click to inspect!) */}
@@ -1120,6 +1247,7 @@ export const App: React.FC = () => {
         isDumbModel={isDumbModel}
         swipePolarity={swipePolarity}
         showTiltHint={meta.runCount === 1 && run.turn <= 2 && !isEscapeActive}
+        keyboardDisabled={isAnyModalOpen}
         onPreviewDirection={setPreviewDir}
         onCommitSwipe={handleCommitSwipe}
         onOpenWiki={setActiveWiki}
@@ -1292,6 +1420,7 @@ export const App: React.FC = () => {
         onGrantRelic={handleGrantRelic}
         onTriggerDoubaoIntro={handleTriggerDoubaoIntro}
         onGrantSpecialStatus={handleGrantSpecialStatus}
+        onEquipSingleRunPerk={handleEquipSingleRunPerk}
         onUnlockAllCastToRun5={handleUnlockAllCastToRun5}
         onHardResetSave={handleHardReset}
       />

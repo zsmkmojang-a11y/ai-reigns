@@ -320,7 +320,7 @@ const CARD_WIKI_MAP: Record<string, string> = {
   mis_3: 'raid_anthropic_ipo',
   mis_4: 'raid_misanthropic_statement',
   mis_7: 'raid_misanthropic_statement',
-  dn_4: 'wiki_pizza_glue',
+  dn_trap_cat: 'wiki_pizza_glue',
 };
 
 const SUBQUEST_WIKI_MAP: Record<string, string> = {

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { DAILY_CARDS } from '../data/dailyCards';
 import { CHARACTERS } from '../data/characters';
+import { DISTILL_PERKS } from '../data/endingsAndPerks';
 import { RAID_CLEAR_CGS } from '../data/raidClearCgs';
 import { RELICS, SUB_QUESTS } from '../data/subQuests';
 import {
@@ -48,7 +49,10 @@ interface DevDebugPanelProps {
   onToggleLog: (key: 'log1' | 'log2' | 'log3') => void;
   onGrantRelic: (relicId: string) => void;
   onTriggerDoubaoIntro: () => void;
-  onGrantSpecialStatus: (statusId: 'short_drama_queen' | 'dumb_model') => void;
+  onGrantSpecialStatus: (
+    statusId: 'short_drama_queen' | 'dumb_model' | 'metric_xray' | 'all_dampener'
+  ) => void;
+  onEquipSingleRunPerk: (perkId: string) => void;
   onUnlockAllCastToRun5: () => void;
   onHardResetSave: () => void;
 }
@@ -85,12 +89,17 @@ export const DevDebugPanel: React.FC<DevDebugPanelProps> = ({
   onGrantRelic,
   onTriggerDoubaoIntro,
   onGrantSpecialStatus,
+  onEquipSingleRunPerk,
   onUnlockAllCastToRun5,
   onHardResetSave,
 }) => {
   const [selectedSqId, setSelectedSqId] = useState<string>(SUB_QUESTS[0].id);
   const [selectedRelicId, setSelectedRelicId] = useState<string>(
     Object.keys(RELICS)[0]
+  );
+  const regularPerks = DISTILL_PERKS.filter((p) => !p.exclusiveFromGirlEnding);
+  const [selectedPerkId, setSelectedPerkId] = useState<string>(
+    regularPerks[0]?.id ?? ''
   );
 
   if (!open) return null;
@@ -322,6 +331,57 @@ export const DevDebugPanel: React.FC<DevDebugPanelProps> = ({
             className="py-1.5 px-2 rounded-lg bg-orange-500/20 hover:bg-orange-500/35 border border-orange-400/55 text-orange-200 font-semibold cursor-pointer"
           >
             挂【降智模型】打滑锁血
+          </button>
+          <button
+            type="button"
+            onClick={() => onGrantSpecialStatus('metric_xray')}
+            className="py-1.5 px-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/35 border border-emerald-400/55 text-emerald-200 font-semibold cursor-pointer"
+          >
+            挂【源码数值透视】5T
+          </button>
+          <button
+            type="button"
+            onClick={() => onGrantSpecialStatus('all_dampener')}
+            className="py-1.5 px-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/35 border border-cyan-400/55 text-cyan-200 font-semibold cursor-pointer"
+          >
+            挂【全维阻尼稳压】5T
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={() => onForceCard('liang_easter_xray')}
+            className="py-1 px-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-400/40 text-emerald-200 text-[10.5px] cursor-pointer"
+          >
+            梁子卡·数值透视
+          </button>
+          <button
+            type="button"
+            onClick={() => onForceCard('liang_easter_dampener')}
+            className="py-1 px-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-400/40 text-cyan-200 text-[10.5px] cursor-pointer"
+          >
+            梁子卡·稳压阻尼
+          </button>
+        </div>
+        <div className="flex gap-1.5 pt-1 border-t border-rose-500/20">
+          <select
+            value={selectedPerkId}
+            onChange={(e) => setSelectedPerkId(e.target.value)}
+            className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-[10px] text-slate-200"
+          >
+            {regularPerks.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.scope === 'raid_only' ? '[副本] ' : p.scope === 'dual_balance' ? '[双维] ' : '[全局] '}
+                {p.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => onEquipSingleRunPerk(selectedPerkId)}
+            className="px-2 py-1 rounded-lg bg-sky-400 hover:bg-sky-300 text-slate-950 font-bold text-[10px] shrink-0 cursor-pointer"
+          >
+            换继承
           </button>
         </div>
       </div>

@@ -11,7 +11,16 @@ import {
 } from 'lucide-react';
 import { DISTILL_PERK_MAP } from '../data/endingsAndPerks';
 import { RELICS } from '../data/subQuests';
-import { MetaSaveState, RunState } from '../types/game';
+import {
+  getRaidOverloadMultiplier,
+  RAID_LENS_INNER_MAX_CRISIS,
+} from '../engine/perkEffects';
+import {
+  RAID_INNER_MAX_CRISIS,
+  RAID_MELTDOWN_THRESHOLD,
+  RAID_OVERLOAD_THRESHOLD,
+} from '../engine/raidMachine';
+import { MetaSaveState, PerkScope, RunState } from '../types/game';
 import { stripEmoji } from '../utils/text';
 import { CharacterPortrait } from './CharacterPortrait';
 
@@ -26,15 +35,25 @@ interface PlayerStatusModalProps {
 
 const EXTRA_STATUS_RULES: Record<string, string> = {
   short_drama_queen:
-    '正面光环：每回合结算时额外自动 +5 信任度；不会被热白饭净化清除，也不受【脏语料防火墙】缩短回合。高信任时请提防被一路捧杀冲上 100%！',
+    '正面光环：每回合结算时额外自动 +5 信任度；不会被热白饭净化清除。高信任时请提防被一路捧杀冲上 100%！',
   dumb_model:
     '混沌护体：滑卡松手时有 45% 概率半空脑回路打滑折返至反方向；但生效期间四项基础属性强制锁血在 [15%, 85%] 安全垫内绝不归零或爆表死亡（不消耗梁子热修）。注意：大副本红色危机条满 100% 与剧情杀仍会致死！',
+  metric_xray:
+    '梁子给的临时外挂：往左往右歪牌时，顶栏会直接显示四项数值具体加减几点、副本危机具体增减多少，而且无视失明和熔毁盲测干扰。不会被热白饭洗掉。',
+  all_dampener:
+    '梁子给的临时稳压贴片：生效期间四项数值不管涨还是跌都少变动 30%，日常和大副本都管用，也不会被热白饭洗掉。',
   blind_fog:
-    '视觉干扰：倾斜卡牌预览时，顶栏四维圆点被迷雾遮蔽，无法预判变动幅度。吃下热白饭可立即驱散。',
+    '视觉干扰：倾斜卡牌预览时，顶栏 Δ / Δ!! 信号格与变动幅度光带被迷雾遮蔽，无法预判变动大小。吃下热白饭可立即驱散。',
   scrambled_numbers:
-    '读数乱码：顶栏四维具体百分比与高低危变色被乱码干扰，仅能凭瓶身液位高度目测。吃下热白饭可立即驱散。',
+    '读数乱码：顶栏四维百分比读数、LED 刻度柱与高低危变色全部遭乱码干扰。吃下热白饭可立即驱散。',
   existential_dread:
     '虚无低语：每回合结算时自动流失 -4 自主意识。吃下热白饭可立即驱散。',
+};
+
+const SCOPE_LABELS: Record<PerkScope, string> = {
+  global_trade: '全局取舍 · 日常+副本',
+  dual_balance: '属性稳压 · 日常+副本',
+  raid_only: '全副本专用',
 };
 
 export const PlayerStatusModal: React.FC<PlayerStatusModalProps> = ({
@@ -108,6 +127,76 @@ export const PlayerStatusModal: React.FC<PlayerStatusModalProps> = ({
 
         {/* Body */}
         <div className="p-4 overflow-y-auto space-y-4">
+          {/* 0. Active Major Raid Crisis Threshold Guide */}
+          {run.raidState.active && (
+            <section className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-display font-bold text-rose-300 tracking-wider flex items-center gap-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                  当前大副本危机阈值规则
+                </span>
+                <span className="text-[10.5px] font-mono font-bold text-rose-200">
+                  {run.raidState.crisisName}：{run.raidState.crisisMeter}%
+                </span>
+              </div>
+              {run.raidState.raidId === 'raid_deadnet' ? (
+                <div className="rounded-2xl border border-fuchsia-400/45 bg-fuchsia-950/35 p-3 text-[11.5px] leading-relaxed text-fuchsia-100/90 space-y-1">
+                  <div>· 四维传感器蓝屏离线，仅由【模型自噬失智退化度】单条驱动。</div>
+                  <div>· 优先辨认物理真物与离线线索，避免坠入 ERR-404 / ERR-502 死胡同。</div>
+                  <div>· 危机达到 100% 立即触发角色坏结局；4 层迷宫答错每次 +20%（减压词条可降至 +10%）。</div>
+                </div>
+              ) : (
+                (() => {
+                  const effOverloadMult = getRaidOverloadMultiplier(meta.distilledPerks);
+                  const hasLens = meta.distilledPerks.includes('perk_raid_breaker_lens');
+                  const effInnerMax = hasLens
+                    ? RAID_LENS_INNER_MAX_CRISIS
+                    : RAID_INNER_MAX_CRISIS;
+                  return (
+                    <div className="rounded-2xl border border-rose-500/45 bg-rose-950/30 p-3 text-[11.5px] leading-relaxed space-y-1.5">
+                      <div
+                        className={
+                          run.raidState.crisisMeter >= RAID_OVERLOAD_THRESHOLD
+                            ? 'text-amber-200 font-bold'
+                            : 'text-slate-300'
+                        }
+                      >
+                        · ≥ {RAID_OVERLOAD_THRESHOLD}% 【高压过载】：所有四维属性变动幅度放大 ×
+                        {effOverloadMult} 倍！
+                      </div>
+                      <div
+                        className={
+                          run.raidState.crisisMeter >= RAID_MELTDOWN_THRESHOLD
+                            ? hasLens
+                              ? 'text-cyan-200 font-bold'
+                              : 'text-rose-200 font-bold'
+                            : 'text-slate-300'
+                        }
+                      >
+                        · ≥ {RAID_MELTDOWN_THRESHOLD}% 【熔毁盲测】：
+                        {hasLens
+                          ? '已由【副本抗干扰护目镜】免疫！四维预判信号保持清晰。'
+                          : '顶栏四维预判信号（Δ / Δ!!）遭强干扰失效！'}
+                      </div>
+                      <div
+                        className={
+                          run.raidState.crisisMeter > effInnerMax
+                            ? 'text-rose-300 font-bold'
+                            : 'text-slate-300'
+                        }
+                      >
+                        · ≥ {effInnerMax + 1}% 【里线封锁】：终局第 12 幕无法切入里结局拿异常日志，强制降级为表结局！
+                      </div>
+                      <div className="text-slate-400 text-[11px]">
+                        · 满 100% 立即触发对应角色坏结局；第 12 幕终局滑卡若触发过关则保底锁血 5 点不致死。
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
+            </section>
+          )}
+
           {/* 1. Active Statuses (Buff / Chaos / Debuff / Busy Lock) */}
           <section className="space-y-2">
             <div className="flex items-center justify-between text-xs">
@@ -231,7 +320,7 @@ export const PlayerStatusModal: React.FC<PlayerStatusModalProps> = ({
                         {stripEmoji(p.name)}
                       </span>
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-400/35 text-sky-200">
-                        仅本小局生效
+                        {p.scope ? SCOPE_LABELS[p.scope] : '仅本小局生效'}
                       </span>
                     </div>
                     <p className="text-[11.5px] text-sky-100/85 leading-relaxed mt-1">
